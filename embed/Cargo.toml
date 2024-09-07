@@ -1,8 +1,0 @@
-[package]
-name = "embed"
-version = "0.1.0"
-authors = ["Lutz <bla@example.com>"]
-
-[lib]
-name = "embed"
-crate-type = ["dylib"]
