@@ -6,6 +6,7 @@ mod avahi;
 mod avahi3;
 mod avahi_error;
 mod denon_connection;
+mod error;
 mod parse;
 mod state;
 mod stream;
@@ -15,6 +16,7 @@ mod logger;
 
 use denon_connection::DenonConnection;
 pub use denon_connection::{read, write_string};
+pub use error::Error;
 use getopts::Options;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
 use std::io::Write;
@@ -100,39 +102,6 @@ pub fn get_receiver_and_port(
     Ok((denon_name, port))
 }
 
-#[derive(Debug)]
-#[allow(dead_code)] // Fields will be used when an error is printed
-pub enum Error {
-    ParseInt(std::num::ParseIntError),
-    Avahi(avahi_error::Error),
-    IO(std::io::Error),
-    Input(String),
-}
-
-impl std::convert::From<std::num::ParseIntError> for Error {
-    fn from(parse_error: std::num::ParseIntError) -> Self {
-        Error::ParseInt(parse_error)
-    }
-}
-
-impl std::convert::From<avahi_error::Error> for Error {
-    fn from(avahi_error: avahi_error::Error) -> Self {
-        Error::Avahi(avahi_error)
-    }
-}
-
-impl std::convert::From<std::io::Error> for Error {
-    fn from(io_error: std::io::Error) -> Self {
-        Error::IO(io_error)
-    }
-}
-
-impl std::convert::From<String> for Error {
-    fn from(value: String) -> Self {
-        Error::Input(value)
-    }
-}
-
 pub fn main2(
     args: getopts::Matches,
     stream: Box<dyn ConnectionStream>,
@@ -168,6 +137,7 @@ mod test {
     use crate::avahi_error;
     use crate::denon_connection::read;
     use crate::denon_connection::write_state;
+    use crate::error::Error;
     use crate::get_avahi_impl;
     use crate::get_receiver_and_port;
     use crate::logger::MockLogger;
@@ -176,7 +146,6 @@ mod test {
     use crate::stream::create_tcp_stream;
     use crate::stream::MockReadStream;
     use crate::stream::MockShutdownStream;
-    use crate::Error;
     use crate::PowerState;
     use crate::SourceInputState;
     use crate::{
@@ -416,33 +385,5 @@ mod test {
         main2(args, msdstream, mlogger).unwrap();
 
         Ok(())
-    }
-
-    macro_rules! check_error {
-        ($error_value:expr, $expected:pat, $string:expr ) => {
-            let error = Error::from($error_value);
-            assert!(matches!(error, $expected));
-            assert_eq!($string, format!("{:?}", error));
-        };
-    }
-
-    #[test]
-    fn error_test() {
-        check_error!(
-            i32::from_str_radix("a23", 10).unwrap_err(),
-            Error::ParseInt(_),
-            "ParseInt(ParseIntError { kind: InvalidDigit })"
-        );
-        check_error!(
-            avahi_error::Error::NoHostsFound,
-            Error::Avahi(_),
-            "Avahi(NoHostsFound)"
-        );
-        check_error!(
-            std::io::Error::from(io::ErrorKind::AddrInUse),
-            Error::IO(_),
-            "IO(Kind(AddrInUse))"
-        );
-        check_error!(String::from("blub"), Error::Input(_), "Input(\"blub\")");
     }
 }
