@@ -1,5 +1,5 @@
-use crate::parse::{parse, State};
-use crate::state::{SetState, StateValue};
+use crate::parse::parse;
+use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
@@ -187,8 +187,7 @@ pub mod test {
     use super::{thread_func_impl, DenonConnection};
     use crate::denon_connection::{read, write_string};
     use crate::logger::MockLogger;
-    use crate::parse::{PowerState, SourceInputState};
-    use crate::state::{SetState, State, StateValue};
+    use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
     use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
     use std::cmp::min;
     use std::io::{self, Error};
