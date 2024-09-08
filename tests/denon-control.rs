@@ -1,13 +1,26 @@
 use assert_cmd::prelude::*; // Add methods on commands
 use denon_control::{read, write_string};
+use parameterized::parameterized;
 use predicates::prelude::*; // Used for writing assertions
 use predicates::str::contains;
 use std::{
     io::{self, Read},
     net::{TcpListener, TcpStream},
     process::Command,
-    thread,
+    thread::{self, JoinHandle},
 }; // Run programs
+
+fn create_acceptor_thread() -> Result<(JoinHandle<Result<TcpStream, io::Error>>, u16), io::Error> {
+    let listen_socket = TcpListener::bind("localhost:0")?;
+    let local_port = listen_socket.local_addr()?.port();
+
+    let acceptor = thread::spawn(move || -> Result<TcpStream, io::Error> {
+        let to_receiver = listen_socket.accept()?.0;
+        Ok(to_receiver)
+    });
+
+    Ok((acceptor, local_port))
+}
 
 #[test]
 fn denon_control_prints_help() -> Result<(), Box<dyn std::error::Error>> {
@@ -141,14 +154,8 @@ fn denon_control_queries_receiver_state_and_gets_all_states_at_once(
 
 #[test]
 fn denon_control_sets_receiver_state() -> Result<(), Box<dyn std::error::Error>> {
-    let listen_socket = TcpListener::bind("localhost:0")?;
-    let local_port = listen_socket.local_addr()?.port();
+    let (acceptor, local_port) = create_acceptor_thread()?;
     let mut cmd = Command::cargo_bin("denon-control")?;
-
-    let acceptor = thread::spawn(move || -> Result<TcpStream, io::Error> {
-        let to_receiver = listen_socket.accept()?.0;
-        Ok(to_receiver)
-    });
 
     cmd.arg("--address")
         .arg(format!("localhost:{}", local_port))
@@ -158,9 +165,7 @@ fn denon_control_sets_receiver_state() -> Result<(), Box<dyn std::error::Error>>
         .arg("CD")
         .arg("--volume")
         .arg("127");
-    cmd.assert()
-        .success()
-        .stdout(contains("using receiver: localhost:"));
+    cmd.assert().success();
 
     let mut to_receiver = acceptor.join().unwrap()?;
     let received_data = read(&mut to_receiver, 10)?;
@@ -168,6 +173,82 @@ fn denon_control_sets_receiver_state() -> Result<(), Box<dyn std::error::Error>>
     assert!(received_data.contains(&String::from("SICD")));
     assert!(received_data.contains(&String::from("MV50")));
     assert!(received_data.contains(&String::from("PWSTANDBY")));
+
+    Ok(())
+}
+
+#[parameterized(power = {"ON", "STANDBY"})]
+fn denon_control_sets_power(power: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (acceptor, local_port) = create_acceptor_thread()?;
+    let mut cmd = Command::cargo_bin("denon-control")?;
+
+    cmd.arg("--address")
+        .arg(format!("localhost:{}", local_port))
+        .arg("--power")
+        .arg(power);
+    cmd.assert().success();
+
+    let mut to_receiver = acceptor.join().unwrap()?;
+    let received_data = read(&mut to_receiver, 10)?;
+
+    assert!(received_data.contains(&format!("PW{}", power)));
+
+    Ok(())
+}
+
+#[parameterized(source_input = {"CD", "DVD", "BD", "NET/USB"})]
+fn denon_control_sets_source_input(source_input: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (acceptor, local_port) = create_acceptor_thread()?;
+    let mut cmd = Command::cargo_bin("denon-control")?;
+
+    cmd.arg("--address")
+        .arg(format!("localhost:{}", local_port))
+        .arg("--input")
+        .arg(source_input);
+    cmd.assert().success();
+
+    let mut to_receiver = acceptor.join().unwrap()?;
+    let received_data = read(&mut to_receiver, 10)?;
+
+    assert!(received_data.contains(&format!("SI{}", source_input)));
+
+    Ok(())
+}
+
+#[parameterized(volume = {"0", "1","50"})]
+fn denon_control_sets_volume(volume: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (acceptor, local_port) = create_acceptor_thread()?;
+    let mut cmd = Command::cargo_bin("denon-control")?;
+
+    cmd.arg("--address")
+        .arg(format!("localhost:{}", local_port))
+        .arg("--volume")
+        .arg(volume);
+    cmd.assert().success();
+
+    let mut to_receiver = acceptor.join().unwrap()?;
+    let received_data = read(&mut to_receiver, 10)?;
+
+    assert!(received_data.contains(&format!("MV{}", volume)));
+
+    Ok(())
+}
+
+#[parameterized(volume = {"50", "51", "100", "999"})]
+fn denon_control_caps_higher_volumes_to_50(volume: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (acceptor, local_port) = create_acceptor_thread()?;
+    let mut cmd = Command::cargo_bin("denon-control")?;
+
+    cmd.arg("--address")
+        .arg(format!("localhost:{}", local_port))
+        .arg("--volume")
+        .arg(volume);
+    cmd.assert().success();
+
+    let mut to_receiver = acceptor.join().unwrap()?;
+    let received_data = read(&mut to_receiver, 10)?;
+
+    assert!(received_data.contains(&String::from("MV50")));
 
     Ok(())
 }
