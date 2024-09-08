@@ -186,7 +186,7 @@ mod test {
     use crate::PowerState;
     use crate::SourceInputState;
     use crate::{
-        denon_connection::test::create_connected_connection, parse::State, parse_args, print_status,
+        denon_connection::test::create_connected_connection, parse_args, print_status, state::State,
     };
     use std::io;
     use std::net::TcpListener;

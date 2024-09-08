@@ -1,6 +1,6 @@
 use crate::state::get_state;
 use crate::state::SetState;
-pub use crate::state::{PowerState, SourceInputState, State};
+use crate::state::{PowerState, SourceInputState, State};
 
 macro_rules! parsehelper {
     ($trimmed:expr, $op:expr, $ss:expr, $func:path) => {
