@@ -83,8 +83,16 @@ fn denon_control_loses_connection() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[test]
+#[parameterized(power = {"STANDBY", "ON", "ON", "STANDBY"},
+                input = {"TUNER", "NET/USB", "BD", "DVD"},
+                volume = {"200", "300", "0", "100"},
+                max_volume = {"333", "230", "666", "110"}
+            )]
 fn denon_control_queries_receiver_state_and_gets_state_one_by_one(
+    power: &str,
+    input: &str,
+    volume: &str,
+    max_volume: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let listen_socket = TcpListener::bind("localhost:0")?;
     let local_port = listen_socket.local_addr()?.port();
@@ -93,17 +101,17 @@ fn denon_control_queries_receiver_state_and_gets_state_one_by_one(
     let acceptor = thread::spawn(move || -> Result<(TcpStream, Vec<String>), io::Error> {
         let mut to_receiver = listen_socket.accept()?.0;
         let mut received_data = read(&mut to_receiver, 1)?;
-        write_string(&mut to_receiver, String::from("PWON\r"))?;
+        write_string(&mut to_receiver, format!("PW{}\r", power))?;
         received_data.append(&mut read(&mut to_receiver, 1)?);
-        write_string(&mut to_receiver, String::from("SIDVD\r"))?;
+        write_string(&mut to_receiver, format!("SI{}\r", input))?;
         received_data.append(&mut read(&mut to_receiver, 1)?);
-        write_string(&mut to_receiver, String::from("MV230\r"))?;
+        write_string(&mut to_receiver, format!("MV{}\r", volume))?;
         received_data.append(&mut read(&mut to_receiver, 1)?);
-        write_string(&mut to_receiver, String::from("MVMAX666\r"))?;
+        write_string(&mut to_receiver, format!("MVMAX{}\r", max_volume))?;
         Ok((to_receiver, received_data))
     });
 
-    let expected = "Current status of receiver:\n\tPower(ON)\n\tSourceInput(DVD)\n\tMainVolume(230)\n\tMaxVolume(666)\n";
+    let expected = format!("Current status of receiver:\n\tPower({})\n\tSourceInput({})\n\tMainVolume({})\n\tMaxVolume({})\n", power, input, volume, max_volume);
 
     cmd.arg("--address")
         .arg(format!("localhost:{}", local_port))
@@ -120,8 +128,16 @@ fn denon_control_queries_receiver_state_and_gets_state_one_by_one(
     Ok(())
 }
 
-#[test]
+#[parameterized(power = {"ON", "ON", "STANDBY", "STANDBY"},
+                input = {"BD", "DVD", "TUNER", "NET/USB"},
+                volume = {"0", "100", "200", "300"},
+                max_volume = {"230", "110", "666", "333"}
+            )]
 fn denon_control_queries_receiver_state_and_gets_all_states_at_once(
+    power: &str,
+    input: &str,
+    volume: &str,
+    max_volume: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let listen_socket = TcpListener::bind("localhost:0")?;
     let local_port = listen_socket.local_addr()?.port();
@@ -130,15 +146,16 @@ fn denon_control_queries_receiver_state_and_gets_all_states_at_once(
     let acceptor = thread::spawn(move || -> Result<(TcpStream, Vec<String>), io::Error> {
         let mut to_receiver = listen_socket.accept()?.0;
         let received_data = read(&mut to_receiver, 1)?;
-        write_string(
-            &mut to_receiver,
-            String::from("PWSTANDBY\rSIBD\rMV123\rMVMAX333\r"),
-        )?;
+        let response = format!(
+            "PW{}\rSI{}\rMV{}\rMVMAX{}\r",
+            power, input, volume, max_volume
+        );
+        write_string(&mut to_receiver, response)?;
 
         Ok((to_receiver, received_data))
     });
 
-    let expected = "Current status of receiver:\n\tPower(STANDBY)\n\tSourceInput(BD)\n\tMainVolume(123)\n\tMaxVolume(333)\n";
+    let expected = format!("Current status of receiver:\n\tPower({})\n\tSourceInput({})\n\tMainVolume({})\n\tMaxVolume({})\n", power, input, volume, max_volume);
 
     cmd.arg("--address")
         .arg(format!("localhost:{}", local_port))
