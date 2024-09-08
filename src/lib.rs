@@ -132,28 +132,15 @@ pub fn main2(
 
 #[cfg(test)]
 mod test {
-    use crate::avahi;
-    use crate::avahi3;
-    use crate::avahi_error;
-    use crate::denon_connection::read;
-    use crate::denon_connection::write_state;
+    use crate::denon_connection::{read, test::create_connected_connection, write_state};
     use crate::error::Error;
-    use crate::get_avahi_impl;
-    use crate::get_receiver_and_port;
     use crate::logger::MockLogger;
-    use crate::main2;
-    use crate::state::SetState;
-    use crate::stream::create_tcp_stream;
-    use crate::stream::MockReadStream;
-    use crate::stream::MockShutdownStream;
-    use crate::PowerState;
-    use crate::SourceInputState;
-    use crate::{
-        denon_connection::test::create_connected_connection, parse_args, print_status, state::State,
-    };
+    use crate::state::{PowerState, SetState, SourceInputState, State};
+    use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
+    use crate::{avahi, avahi3, avahi_error};
+    use crate::{get_avahi_impl, get_receiver_and_port, main2, parse_args, print_status};
     use std::io;
-    use std::net::TcpListener;
-    use std::net::TcpStream;
+    use std::net::{TcpListener, TcpStream};
     use std::thread;
 
     #[test]
