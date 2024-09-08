@@ -17,7 +17,7 @@ use denon_connection::DenonConnection;
 pub use denon_connection::{read, write_string};
 use getopts::Options;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
-use std::{fmt, io::Write};
+use std::io::Write;
 pub use stream::create_tcp_stream;
 use stream::ConnectionStream;
 
@@ -107,12 +107,6 @@ pub enum Error {
     Avahi(avahi_error::Error),
     IO(std::io::Error),
     Input(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, format: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(format, "{:?}", self)
-    }
 }
 
 impl std::convert::From<std::num::ParseIntError> for Error {
@@ -428,7 +422,7 @@ mod test {
         ($error_value:expr, $expected:pat, $string:expr ) => {
             let error = Error::from($error_value);
             assert!(matches!(error, $expected));
-            assert_eq!($string, format!("{}", error));
+            assert_eq!($string, format!("{:?}", error));
         };
     }
 
@@ -449,5 +443,6 @@ mod test {
             Error::IO(_),
             "IO(Kind(AddrInUse))"
         );
+        check_error!(String::from("blub"), Error::Input(_), "Input(\"blub\")");
     }
 }
