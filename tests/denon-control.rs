@@ -23,7 +23,7 @@ fn create_acceptor_thread() -> Result<(JoinHandle<Result<TcpStream, io::Error>>,
 }
 
 #[test]
-fn denon_control_prints_help() -> Result<(), Box<dyn std::error::Error>> {
+fn prints_help() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("denon-control")?;
     cmd.arg("--help");
     cmd.assert()
@@ -34,7 +34,7 @@ fn denon_control_prints_help() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn denon_control_fails_to_connect() -> Result<(), Box<dyn std::error::Error>> {
+fn fails_to_connect_and_prints_error() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("denon-control")?;
     cmd.arg("--address").arg("localhost");
     cmd.assert()
@@ -46,7 +46,7 @@ fn denon_control_fails_to_connect() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn denon_control_connects_to_test_receiver() -> Result<(), Box<dyn std::error::Error>> {
+fn connects_to_test_receiver_succesfully() -> Result<(), Box<dyn std::error::Error>> {
     let listen_socket = TcpListener::bind("localhost:0")?;
     let local_port = listen_socket.local_addr()?.port();
 
@@ -61,7 +61,7 @@ fn denon_control_connects_to_test_receiver() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-fn denon_control_loses_connection() -> Result<(), Box<dyn std::error::Error>> {
+fn losing_connection_will_print_error() -> Result<(), Box<dyn std::error::Error>> {
     let listen_socket = TcpListener::bind("localhost:0")?;
     let local_port = listen_socket.local_addr()?.port();
     let mut cmd = Command::cargo_bin("denon-control")?;
@@ -88,7 +88,7 @@ fn denon_control_loses_connection() -> Result<(), Box<dyn std::error::Error>> {
                 volume = {200, 300, 0, 100},
                 max_volume = {333, 230, 666, 110}
             )]
-fn denon_control_queries_receiver_state_and_gets_state_one_by_one(
+fn queries_receiver_state_and_gets_state_one_by_one(
     power: &str,
     input: &str,
     volume: u16,
@@ -133,7 +133,7 @@ fn denon_control_queries_receiver_state_and_gets_state_one_by_one(
                 volume = {0, 100, 200, 300},
                 max_volume = {230, 110, 666, 333}
             )]
-fn denon_control_queries_receiver_state_and_gets_all_states_at_once(
+fn queries_receiver_state_and_gets_all_states_at_once(
     power: &str,
     input: &str,
     volume: u16,
@@ -170,7 +170,7 @@ fn denon_control_queries_receiver_state_and_gets_all_states_at_once(
 }
 
 #[test]
-fn denon_control_sets_receiver_state() -> Result<(), Box<dyn std::error::Error>> {
+fn sets_receiver_state() -> Result<(), Box<dyn std::error::Error>> {
     let (acceptor, local_port) = create_acceptor_thread()?;
     let mut cmd = Command::cargo_bin("denon-control")?;
 
@@ -195,7 +195,7 @@ fn denon_control_sets_receiver_state() -> Result<(), Box<dyn std::error::Error>>
 }
 
 #[parameterized(power = {"ON", "STANDBY"})]
-fn denon_control_sets_power(power: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn sets_power(power: &str) -> Result<(), Box<dyn std::error::Error>> {
     let (acceptor, local_port) = create_acceptor_thread()?;
     let mut cmd = Command::cargo_bin("denon-control")?;
 
@@ -233,7 +233,7 @@ fn setting_invalid_power_prints_error(power: &str) -> Result<(), Box<dyn std::er
 }
 
 #[parameterized(source_input = {"CD", "DVD", "BD", "NET/USB"})]
-fn denon_control_sets_source_input(source_input: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn sets_source_input(source_input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let (acceptor, local_port) = create_acceptor_thread()?;
     let mut cmd = Command::cargo_bin("denon-control")?;
 
@@ -252,7 +252,7 @@ fn denon_control_sets_source_input(source_input: &str) -> Result<(), Box<dyn std
 }
 
 #[parameterized(input = {"SPOTIFY", "BLUB"})]
-fn setting_invalid_input_prints_error(input: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn input_prints_error(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let (acceptor, local_port) = create_acceptor_thread()?;
     let mut cmd = Command::cargo_bin("denon-control")?;
 
@@ -271,7 +271,7 @@ fn setting_invalid_input_prints_error(input: &str) -> Result<(), Box<dyn std::er
 }
 
 #[parameterized(volume = {0, 1, 50})]
-fn denon_control_sets_volume(volume: u16) -> Result<(), Box<dyn std::error::Error>> {
+fn sets_volume(volume: u16) -> Result<(), Box<dyn std::error::Error>> {
     let (acceptor, local_port) = create_acceptor_thread()?;
     let mut cmd = Command::cargo_bin("denon-control")?;
 
@@ -309,7 +309,7 @@ fn setting_invalid_volume_prints_error(volume: &str) -> Result<(), Box<dyn std::
 }
 
 #[parameterized(volume = {50, 51, 100, 999})]
-fn denon_control_caps_higher_volumes_to_50(volume: u16) -> Result<(), Box<dyn std::error::Error>> {
+fn caps_higher_volumes_to_50(volume: u16) -> Result<(), Box<dyn std::error::Error>> {
     let (acceptor, local_port) = create_acceptor_thread()?;
     let mut cmd = Command::cargo_bin("denon-control")?;
 
