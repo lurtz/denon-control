@@ -1,7 +1,6 @@
-pub use crate::state::PowerState;
+use crate::state::get_state;
 use crate::state::SetState;
-pub use crate::state::SourceInputState;
-pub use crate::state::State;
+pub use crate::state::{PowerState, SourceInputState, State};
 
 macro_rules! parsehelper {
     ($trimmed:expr, $op:expr, $ss:expr, $func:path) => {
@@ -27,21 +26,13 @@ fn parse_int(to_parse: &str) -> u32 {
 }
 
 fn parse_power(value: &str) -> PowerState {
-    if "ON" == value {
-        PowerState::On
-    } else {
-        PowerState::Standby
-    }
+    let ps = get_state(PowerState::states(), value);
+    ps.unwrap_or(PowerState::Standby)
 }
 
 fn parse_source_input(value: &str) -> SourceInputState {
-    for sis in SourceInputState::iterator() {
-        if sis.to_string() == value {
-            return *sis;
-        }
-    }
-
-    SourceInputState::Unknown
+    let sis = get_state(SourceInputState::states(), value);
+    sis.unwrap_or(SourceInputState::Unknown)
 }
 
 pub fn parse(str: &str) -> Option<SetState> {

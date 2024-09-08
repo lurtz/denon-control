@@ -213,6 +213,25 @@ fn denon_control_sets_power(power: &str) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
+#[parameterized(power = {"OFF", "BLUB"})]
+fn setting_invalid_power_prints_error(power: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (acceptor, local_port) = create_acceptor_thread()?;
+    let mut cmd = Command::cargo_bin("denon-control")?;
+
+    cmd.arg("--address")
+        .arg(format!("localhost:{}", local_port))
+        .arg("--power")
+        .arg(power);
+    cmd.assert()
+        .failure()
+        .stderr(contains(format!("given value {} does not match", power)));
+
+    let mut to_receiver = acceptor.join().unwrap()?;
+    assert!(read(&mut to_receiver, 10).is_err());
+
+    Ok(())
+}
+
 #[parameterized(source_input = {"CD", "DVD", "BD", "NET/USB"})]
 fn denon_control_sets_source_input(source_input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let (acceptor, local_port) = create_acceptor_thread()?;
@@ -232,6 +251,25 @@ fn denon_control_sets_source_input(source_input: &str) -> Result<(), Box<dyn std
     Ok(())
 }
 
+#[parameterized(input = {"SPOTIFY", "BLUB"})]
+fn setting_invalid_input_prints_error(input: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (acceptor, local_port) = create_acceptor_thread()?;
+    let mut cmd = Command::cargo_bin("denon-control")?;
+
+    cmd.arg("--address")
+        .arg(format!("localhost:{}", local_port))
+        .arg("--input")
+        .arg(input);
+    cmd.assert()
+        .failure()
+        .stderr(contains(format!("given value {} does not match", input)));
+
+    let mut to_receiver = acceptor.join().unwrap()?;
+    assert!(read(&mut to_receiver, 10).is_err());
+
+    Ok(())
+}
+
 #[parameterized(volume = {0, 1, 50})]
 fn denon_control_sets_volume(volume: u16) -> Result<(), Box<dyn std::error::Error>> {
     let (acceptor, local_port) = create_acceptor_thread()?;
@@ -247,6 +285,25 @@ fn denon_control_sets_volume(volume: u16) -> Result<(), Box<dyn std::error::Erro
     let received_data = read(&mut to_receiver, 10)?;
 
     assert!(received_data.contains(&format!("MV{}", volume)));
+
+    Ok(())
+}
+
+#[parameterized(volume = {"test", "foo", ""})]
+fn setting_invalid_volume_prints_error(volume: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (acceptor, local_port) = create_acceptor_thread()?;
+    let mut cmd = Command::cargo_bin("denon-control")?;
+
+    cmd.arg("--address")
+        .arg(format!("localhost:{}", local_port))
+        .arg("--volume")
+        .arg(volume);
+    cmd.assert()
+        .failure()
+        .stderr(contains(String::from("ParseInt")));
+
+    let mut to_receiver = acceptor.join().unwrap()?;
+    assert!(read(&mut to_receiver, 10).is_err());
 
     Ok(())
 }

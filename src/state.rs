@@ -1,7 +1,6 @@
 use std::cmp::{Eq, PartialEq};
 use std::fmt::{Display, Error, Formatter, Write};
 use std::hash::Hash;
-use std::slice::Iter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PowerState {
@@ -18,9 +17,9 @@ impl Display for PowerState {
 }
 
 impl PowerState {
-    pub fn iterator() -> Iter<'static, PowerState> {
+    pub fn states() -> &'static [PowerState] {
         static STATES: [PowerState; 2] = [PowerState::On, PowerState::Standby];
-        STATES.iter()
+        &STATES
     }
 }
 
@@ -67,7 +66,7 @@ impl Display for SourceInputState {
 }
 
 impl SourceInputState {
-    pub fn iterator() -> Iter<'static, SourceInputState> {
+    pub fn states() -> &'static [SourceInputState] {
         static STATES: [SourceInputState; 25] = [
             SourceInputState::Cd,
             SourceInputState::Tuner,
@@ -95,7 +94,7 @@ impl SourceInputState {
             SourceInputState::Irp,
             SourceInputState::Fvp,
         ];
-        STATES.iter()
+        &STATES
     }
 }
 
@@ -165,6 +164,21 @@ impl Display for StateValue {
     }
 }
 
+pub fn get_state<T: ToString + Copy + std::fmt::Debug>(
+    states: &[T],
+    value: &str,
+) -> Result<T, String> {
+    for power in states {
+        if power.to_string() == value {
+            return Ok(*power);
+        }
+    }
+    Err(format!(
+        "given value {} does not match to any of these: {:?}",
+        value, states
+    ))
+}
+
 #[cfg(test)]
 mod test {
     use super::StateValue;
@@ -215,11 +229,9 @@ mod test {
     }
 
     #[test]
-    fn power_state_iterator() {
-        let mut piter = PowerState::iterator();
-        assert!(matches!(piter.next(), Some(PowerState::On)));
-        assert!(matches!(piter.next(), Some(PowerState::Standby)));
-        assert!(matches!(piter.next(), None));
+    fn power_states() {
+        let piter = PowerState::states();
+        assert!(piter == [PowerState::On, PowerState::Standby]);
     }
 
     #[test]

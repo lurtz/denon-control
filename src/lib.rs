@@ -16,7 +16,7 @@ mod logger;
 use denon_connection::DenonConnection;
 pub use denon_connection::{read, write_string};
 use getopts::Options;
-use state::{PowerState, SetState, SourceInputState, State};
+use state::{get_state, PowerState, SetState, SourceInputState, State};
 use std::{fmt, io::Write};
 pub use stream::create_tcp_stream;
 use stream::ConnectionStream;
@@ -106,6 +106,7 @@ pub enum Error {
     ParseInt(std::num::ParseIntError),
     Avahi(avahi_error::Error),
     IO(std::io::Error),
+    Input(String),
 }
 
 impl fmt::Display for Error {
@@ -132,6 +133,12 @@ impl std::convert::From<std::io::Error> for Error {
     }
 }
 
+impl std::convert::From<String> for Error {
+    fn from(value: String) -> Self {
+        Error::Input(value)
+    }
+}
+
 pub fn main2(
     args: getopts::Matches,
     stream: Box<dyn ConnectionStream>,
@@ -142,25 +149,15 @@ pub fn main2(
     if args.opt_present("s") {
         println!("{}", print_status(&mut dc)?);
     }
-
     if let Some(p) = args.opt_str("p") {
-        for power in PowerState::iterator() {
-            if power.to_string() == p {
-                dc.set(SetState::Power(*power))?;
-            }
-        }
+        let state = get_state(PowerState::states(), p.as_str())?;
+        dc.set(SetState::Power(state))?;
     }
-
     if let Some(i) = args.opt_str("i") {
-        for input in SourceInputState::iterator() {
-            if input.to_string() == i {
-                dc.set(SetState::SourceInput(*input))?;
-            }
-        }
+        let state = get_state(SourceInputState::states(), i.as_str())?;
+        dc.set(SetState::SourceInput(state))?;
     }
-
-    if let Some(v) = args.opt_str("v") {
-        let mut vi: u32 = v.parse()?;
+    if let Some(mut vi) = args.opt_get::<u32>("v")? {
         // do not accidentally kill the ears
         if vi > 50 {
             vi = 50;
