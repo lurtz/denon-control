@@ -132,7 +132,7 @@ pub fn main2(
 
 #[cfg(test)]
 mod test {
-    use crate::denon_connection::{read, test::create_connected_connection, write_state};
+    use crate::denon_connection::{read, test::create_connected_connection, write_string};
     use crate::error::Error;
     use crate::logger::MockLogger;
     use crate::state::{PowerState, SetState, SourceInputState, State};
@@ -215,13 +215,10 @@ mod test {
     #[test]
     fn print_status_test() -> Result<(), io::Error> {
         let (mut to_receiver, mut dc) = create_connected_connection()?;
-        write_state(&mut to_receiver, SetState::Power(PowerState::On))?;
-        write_state(
-            &mut to_receiver,
-            SetState::SourceInput(SourceInputState::Cd),
-        )?;
-        write_state(&mut to_receiver, SetState::MainVolume(230))?;
-        write_state(&mut to_receiver, SetState::MaxVolume(666))?;
+        write_string(&mut to_receiver, "PWON\r".to_string())?;
+        write_string(&mut to_receiver, "SICD\r".to_string())?;
+        write_string(&mut to_receiver, "MV230\r".to_string())?;
+        write_string(&mut to_receiver, "MVMAX666\r".to_string())?;
 
         let expected = "Current status of receiver:\n\tPower(ON)\n\tSourceInput(CD)\n\tMainVolume(230)\n\tMaxVolume(666)\n";
         assert_eq!(expected, print_status(&mut dc).unwrap());
@@ -299,6 +296,7 @@ mod test {
 
     #[test]
     fn main2_test() -> Result<(), io::Error> {
+        // TODO use mocks
         let listen_socket = TcpListener::bind("localhost:0")?;
         let local_port = listen_socket.local_addr()?.port();
         let string_args = vec![
@@ -319,16 +317,13 @@ mod test {
             let mut to_receiver = listen_socket.accept()?.0;
 
             let mut received_data = read(&mut to_receiver, 1)?;
-            write_state(&mut to_receiver, SetState::Power(PowerState::On))?;
+            write_string(&mut to_receiver, "PWON\r".to_string())?;
             received_data.append(&mut read(&mut to_receiver, 1)?);
-            write_state(
-                &mut to_receiver,
-                SetState::SourceInput(SourceInputState::Dvd),
-            )?;
+            write_string(&mut to_receiver, "SIDVD\r".to_string())?;
             received_data.append(&mut read(&mut to_receiver, 1)?);
-            write_state(&mut to_receiver, SetState::MainVolume(230))?;
+            write_string(&mut to_receiver, "MV230\r".to_string())?;
             received_data.append(&mut read(&mut to_receiver, 1)?);
-            write_state(&mut to_receiver, SetState::MaxVolume(666))?;
+            write_string(&mut to_receiver, "MVMAX666\r".to_string())?;
             Ok((to_receiver, received_data))
         });
 

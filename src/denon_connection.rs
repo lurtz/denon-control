@@ -16,7 +16,7 @@ pub fn write_string(stream: &mut dyn Write, input: String) -> Result<(), std::io
     Ok(())
 }
 
-pub fn write_state(stream: &mut dyn Write, state: SetState) -> Result<(), io::Error> {
+fn write_state(stream: &mut dyn Write, state: SetState) -> Result<(), io::Error> {
     write_string(stream, format!("{}\r", state))
 }
 
