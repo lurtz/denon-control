@@ -14,8 +14,8 @@ mod stream;
 #[cfg(test)]
 mod logger;
 
+pub use denon_connection::read;
 use denon_connection::DenonConnection;
-pub use denon_connection::{read, write_string};
 pub use error::Error;
 use getopts::Options;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
@@ -215,10 +215,7 @@ mod test {
     #[test]
     fn print_status_test() -> Result<(), io::Error> {
         let (mut to_receiver, mut dc) = create_connected_connection()?;
-        write_string(&mut to_receiver, "PWON\r".to_string())?;
-        write_string(&mut to_receiver, "SICD\r".to_string())?;
-        write_string(&mut to_receiver, "MV230\r".to_string())?;
-        write_string(&mut to_receiver, "MVMAX666\r".to_string())?;
+        write_string(&mut to_receiver, "PWON\rSICD\rMV230\rMVMAX666\r")?;
 
         let expected = "Current status of receiver:\n\tPower(ON)\n\tSourceInput(CD)\n\tMainVolume(230)\n\tMaxVolume(666)\n";
         assert_eq!(expected, print_status(&mut dc).unwrap());
@@ -317,13 +314,13 @@ mod test {
             let mut to_receiver = listen_socket.accept()?.0;
 
             let mut received_data = read(&mut to_receiver, 1)?;
-            write_string(&mut to_receiver, "PWON\r".to_string())?;
+            write_string(&mut to_receiver, "PWON\r")?;
             received_data.append(&mut read(&mut to_receiver, 1)?);
-            write_string(&mut to_receiver, "SIDVD\r".to_string())?;
+            write_string(&mut to_receiver, "SIDVD\r")?;
             received_data.append(&mut read(&mut to_receiver, 1)?);
-            write_string(&mut to_receiver, "MV230\r".to_string())?;
+            write_string(&mut to_receiver, "MV230\r")?;
             received_data.append(&mut read(&mut to_receiver, 1)?);
-            write_string(&mut to_receiver, "MVMAX666\r".to_string())?;
+            write_string(&mut to_receiver, "MVMAX666\r")?;
             Ok((to_receiver, received_data))
         });
 

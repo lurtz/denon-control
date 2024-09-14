@@ -10,18 +10,16 @@ use std::time::Duration;
 
 const ESHUTDOWN: i32 = 108;
 
-pub fn write_string(stream: &mut dyn Write, input: String) -> Result<(), std::io::Error> {
-    let volume_command = input.into_bytes();
-    stream.write_all(&volume_command[..])?;
-    Ok(())
+pub fn write_string(stream: &mut dyn Write, input: &str) -> Result<(), std::io::Error> {
+    stream.write_all(input.as_bytes())
 }
 
 fn write_state(stream: &mut dyn Write, state: SetState) -> Result<(), io::Error> {
-    write_string(stream, format!("{}\r", state))
+    write_string(stream, format!("{}\r", state).as_str())
 }
 
 fn write_query(stream: &mut dyn Write, state: State) -> Result<(), io::Error> {
-    write_string(stream, format!("{}?\r", state))
+    write_string(stream, format!("{}?\r", state).as_str())
 }
 
 pub fn read(stream: &dyn ReadStream, lines: u8) -> Result<Vec<String>, std::io::Error> {
@@ -278,7 +276,7 @@ pub mod test {
     #[test]
     fn connection_receives_volume_from_receiver() -> Result<(), io::Error> {
         let (mut to_denon_client, mut dc) = create_connected_connection()?;
-        write_string(&mut to_denon_client, "MV234\r".to_string())?;
+        write_string(&mut to_denon_client, "MV234\r")?;
         assert_db_value!(dc, SetState::MainVolume(234));
         Ok(())
     }
@@ -289,7 +287,7 @@ pub mod test {
         assert_eq!(StateValue::Unknown, dc.get(State::MainVolume)?);
         assert_eq!(StateValue::Unknown, dc.get(State::SourceInput)?);
         assert_eq!(StateValue::Unknown, dc.get(State::Power)?);
-        write_string(&mut to_denon_client, "MV234\rSICD\rPWON\r".to_string())?;
+        write_string(&mut to_denon_client, "MV234\rSICD\rPWON\r")?;
         assert_db_value!(dc, SetState::MainVolume(234));
         assert_db_value!(dc, SetState::SourceInput(SourceInputState::Cd));
         assert_db_value!(dc, SetState::Power(PowerState::On));
@@ -299,9 +297,9 @@ pub mod test {
     #[test]
     fn connection_updates_values_with_newly_received_data() -> Result<(), io::Error> {
         let (mut to_denon_client, mut dc) = create_connected_connection()?;
-        write_string(&mut to_denon_client, "MV234\r".to_string())?;
+        write_string(&mut to_denon_client, "MV234\r")?;
         assert_db_value!(dc, SetState::MainVolume(234));
-        write_string(&mut to_denon_client, "MV320\r".to_string())?;
+        write_string(&mut to_denon_client, "MV320\r")?;
         wait_for_value_in_database!(dc, SetState::MainVolume(320));
         assert_db_value!(dc, SetState::MainVolume(320));
 
@@ -316,12 +314,12 @@ pub mod test {
         let (mut to_client, _) = listen_socket.accept()?;
 
         // as \r is missing, read() does not read or extract anything
-        write_string(&mut to_client, "blub".to_string())?;
+        write_string(&mut to_client, "blub")?;
         let lines = read(&mut client, 1)?;
         assert_eq!(lines, Vec::<String>::new());
 
         // read() reads until \r and leaves other data in the stream
-        write_string(&mut to_client, "bla\rfoo".to_string())?;
+        write_string(&mut to_client, "bla\rfoo")?;
         let lines = read(&mut client, 2)?;
         assert_eq!(lines, vec!["blubbla".to_owned()]);
 
