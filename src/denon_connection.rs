@@ -335,19 +335,19 @@ pub mod test {
         // peek works
         mstream
             .expect_peekly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|buf| Ok(copy_string_into_slice("some_data\r", buf)));
         // read works
         mstream
             .expect_read_exactly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|_| Ok(()));
         // peek with error
         mstream
             .expect_peekly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|_| Err(Error::from(io::ErrorKind::ConnectionAborted)));
         let lines = read(&mut mstream, 2)?;
@@ -376,12 +376,12 @@ pub mod test {
         let mut mstream = MockReadStream::new();
         mstream
             .expect_peekly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|_| Err(Error::from(io::ErrorKind::TimedOut)));
         mstream
             .expect_peekly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|_| Err(Error::from(io::ErrorKind::ConnectionAborted)));
         let state = Arc::default();
@@ -398,9 +398,9 @@ pub mod test {
         static ERROR_MESSAGE: &str = "blub";
         let mut msdstream = MockShutdownStream::new();
 
-        msdstream.expect_get_readstream().times(1).returning(|| {
+        msdstream.expect_get_readstream().once().returning(|| {
             let mut blub = MockReadStream::new();
-            blub.expect_peekly().times(1).returning(|_| {
+            blub.expect_peekly().once().returning(|_| {
                 Err(io::Error::new(
                     io::ErrorKind::ConnectionAborted,
                     ERROR_MESSAGE,
@@ -409,20 +409,20 @@ pub mod test {
             Ok(Box::new(blub))
         });
 
-        msdstream.expect_shutdownly().times(1).returning(|| Ok(()));
+        msdstream.expect_shutdownly().once().returning(|| Ok(()));
 
         let return_len = |buf: &[u8]| Ok(buf.len());
 
         let mut logger = Box::new(MockLogger::new());
         logger
             .expect_write()
-            .times(1)
+            .once()
             .with(eq("got error: ".as_bytes()))
             .returning(return_len);
 
         logger
             .expect_write()
-            .times(1)
+            .once()
             .with(eq(ERROR_MESSAGE.as_bytes()))
             .returning(return_len);
 

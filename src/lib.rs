@@ -351,15 +351,15 @@ mod test {
 
         let mut msdstream = Box::new(MockShutdownStream::new());
 
-        msdstream.expect_get_readstream().times(1).returning(|| {
+        msdstream.expect_get_readstream().once().returning(|| {
             let mut blub = MockReadStream::new();
             blub.expect_peekly()
-                .times(1)
+                .once()
                 .returning(|_| Err(io::Error::new(io::ErrorKind::ConnectionAborted, "")));
             Ok(Box::new(blub))
         });
 
-        msdstream.expect_shutdownly().times(1).returning(|| Ok(()));
+        msdstream.expect_shutdownly().once().returning(|| Ok(()));
 
         let mut mlogger = Box::new(MockLogger::new());
         mlogger.expect_write().returning(|buf| Ok(buf.len()));
