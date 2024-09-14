@@ -204,6 +204,12 @@ pub mod test {
         Ok((to_denon_client, dc))
     }
 
+    fn copy_string_into_slice(src: &str, dst: &mut [u8]) -> usize {
+        let length = min(src.len(), dst.len());
+        dst[0..length].copy_from_slice(&src.as_bytes()[0..length]);
+        length
+    }
+
     macro_rules! wait_for_value_in_database {
         ($denon_connection:ident, $sstate:expr) => {
             let (state, value) = $sstate.convert();
@@ -320,12 +326,6 @@ pub mod test {
         assert_eq!(lines, vec!["blubbla".to_owned()]);
 
         Ok(())
-    }
-
-    fn copy_string_into_slice(src: &str, dst: &mut [u8]) -> usize {
-        let length = min(src.len(), dst.len());
-        dst[0..length].copy_from_slice(&src.as_bytes()[0..length]);
-        length
     }
 
     #[test]
