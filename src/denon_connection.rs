@@ -1,27 +1,27 @@
+use crate::logger::Logger;
 use crate::parse::parse;
 use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
 use std::panic;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 const ESHUTDOWN: i32 = 108;
 
-pub fn write_string(stream: &mut dyn Write, input: String) -> Result<(), std::io::Error> {
-    let volume_command = input.into_bytes();
-    stream.write_all(&volume_command[..])?;
-    Ok(())
+pub fn write_string(stream: &mut dyn Write, input: &str) -> Result<(), std::io::Error> {
+    stream.write_all(input.as_bytes())
 }
 
-pub fn write_state(stream: &mut dyn Write, state: SetState) -> Result<(), io::Error> {
-    write_string(stream, format!("{}\r", state))
+fn write_state(stream: &mut dyn Write, state: SetState) -> Result<(), io::Error> {
+    write_string(stream, format!("{}\r", state).as_str())
 }
 
 fn write_query(stream: &mut dyn Write, state: State) -> Result<(), io::Error> {
-    write_string(stream, format!("{}?\r", state))
+    write_string(stream, format!("{}?\r", state).as_str())
 }
 
 pub fn read(stream: &dyn ReadStream, lines: u8) -> Result<Vec<String>, std::io::Error> {
@@ -109,13 +109,13 @@ pub struct DenonConnection {
     state: Arc<Mutex<HashMap<State, StateValue>>>,
     to_receiver: Box<dyn ConnectionStream>,
     thread_handle: Option<JoinHandle<Result<(), io::Error>>>,
-    logger: Box<dyn Write>,
+    logger: Rc<dyn Logger>,
 }
 
 impl DenonConnection {
     pub fn new(
         to_receiver: Box<dyn ConnectionStream>,
-        logger: Box<dyn Write>,
+        logger: Rc<dyn Logger>,
     ) -> Result<DenonConnection, io::Error> {
         let state = Arc::new(Mutex::new(HashMap::new()));
         let cloned_state = state.clone();
@@ -171,7 +171,7 @@ impl Drop for DenonConnection {
         match thread_result {
             Ok(result) => {
                 if let Err(e) = result {
-                    let _ = write!(self.logger, "got error: {}", e);
+                    self.logger.log(&format!("got error: {}", e));
                 }
             }
             Err(e) => panic::resume_unwind(e),
@@ -186,12 +186,14 @@ pub mod test {
 
     use super::{thread_func_impl, DenonConnection};
     use crate::denon_connection::{read, write_string};
-    use crate::logger::MockLogger;
+    use crate::logger::{nothing, MockLogger};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
     use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
+    use crate::StdoutLogger;
     use std::cmp::min;
     use std::io::{self, Error};
     use std::net::{TcpListener, TcpStream};
+    use std::rc::Rc;
     use std::sync::Arc;
     use std::thread::yield_now;
 
@@ -199,9 +201,15 @@ pub mod test {
         let listen_socket = TcpListener::bind("localhost:0")?;
         let addr = listen_socket.local_addr()?;
         let s = create_tcp_stream(addr.ip().to_string().as_str(), addr.port())?;
-        let dc = DenonConnection::new(s, Box::new(std::io::stdout()))?;
+        let dc = DenonConnection::new(s, Rc::new(StdoutLogger::default()))?;
         let (to_denon_client, _) = listen_socket.accept()?;
         Ok((to_denon_client, dc))
+    }
+
+    fn copy_string_into_slice(src: &str, dst: &mut [u8]) -> usize {
+        let length = min(src.len(), dst.len());
+        dst[0..length].copy_from_slice(&src.as_bytes()[0..length]);
+        length
     }
 
     macro_rules! wait_for_value_in_database {
@@ -272,7 +280,7 @@ pub mod test {
     #[test]
     fn connection_receives_volume_from_receiver() -> Result<(), io::Error> {
         let (mut to_denon_client, mut dc) = create_connected_connection()?;
-        write_string(&mut to_denon_client, "MV234\r".to_string())?;
+        write_string(&mut to_denon_client, "MV234\r")?;
         assert_db_value!(dc, SetState::MainVolume(234));
         Ok(())
     }
@@ -283,7 +291,7 @@ pub mod test {
         assert_eq!(StateValue::Unknown, dc.get(State::MainVolume)?);
         assert_eq!(StateValue::Unknown, dc.get(State::SourceInput)?);
         assert_eq!(StateValue::Unknown, dc.get(State::Power)?);
-        write_string(&mut to_denon_client, "MV234\rSICD\rPWON\r".to_string())?;
+        write_string(&mut to_denon_client, "MV234\rSICD\rPWON\r")?;
         assert_db_value!(dc, SetState::MainVolume(234));
         assert_db_value!(dc, SetState::SourceInput(SourceInputState::Cd));
         assert_db_value!(dc, SetState::Power(PowerState::On));
@@ -293,9 +301,9 @@ pub mod test {
     #[test]
     fn connection_updates_values_with_newly_received_data() -> Result<(), io::Error> {
         let (mut to_denon_client, mut dc) = create_connected_connection()?;
-        write_string(&mut to_denon_client, "MV234\r".to_string())?;
+        write_string(&mut to_denon_client, "MV234\r")?;
         assert_db_value!(dc, SetState::MainVolume(234));
-        write_string(&mut to_denon_client, "MV320\r".to_string())?;
+        write_string(&mut to_denon_client, "MV320\r")?;
         wait_for_value_in_database!(dc, SetState::MainVolume(320));
         assert_db_value!(dc, SetState::MainVolume(320));
 
@@ -310,22 +318,16 @@ pub mod test {
         let (mut to_client, _) = listen_socket.accept()?;
 
         // as \r is missing, read() does not read or extract anything
-        write_string(&mut to_client, "blub".to_string())?;
+        write_string(&mut to_client, "blub")?;
         let lines = read(&mut client, 1)?;
         assert_eq!(lines, Vec::<String>::new());
 
         // read() reads until \r and leaves other data in the stream
-        write_string(&mut to_client, "bla\rfoo".to_string())?;
+        write_string(&mut to_client, "bla\rfoo")?;
         let lines = read(&mut client, 2)?;
         assert_eq!(lines, vec!["blubbla".to_owned()]);
 
         Ok(())
-    }
-
-    fn copy_string_into_slice(src: &str, dst: &mut [u8]) -> usize {
-        let length = min(src.len(), dst.len());
-        dst[0..length].copy_from_slice(&src.as_bytes()[0..length]);
-        length
     }
 
     #[test]
@@ -335,19 +337,19 @@ pub mod test {
         // peek works
         mstream
             .expect_peekly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|buf| Ok(copy_string_into_slice("some_data\r", buf)));
         // read works
         mstream
             .expect_read_exactly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|_| Ok(()));
         // peek with error
         mstream
             .expect_peekly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|_| Err(Error::from(io::ErrorKind::ConnectionAborted)));
         let lines = read(&mut mstream, 2)?;
@@ -376,12 +378,12 @@ pub mod test {
         let mut mstream = MockReadStream::new();
         mstream
             .expect_peekly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|_| Err(Error::from(io::ErrorKind::TimedOut)));
         mstream
             .expect_peekly()
-            .times(1)
+            .once()
             .in_sequence(&mut sequence)
             .returning(|_| Err(Error::from(io::ErrorKind::ConnectionAborted)));
         let state = Arc::default();
@@ -398,9 +400,9 @@ pub mod test {
         static ERROR_MESSAGE: &str = "blub";
         let mut msdstream = MockShutdownStream::new();
 
-        msdstream.expect_get_readstream().times(1).returning(|| {
+        msdstream.expect_get_readstream().once().returning(|| {
             let mut blub = MockReadStream::new();
-            blub.expect_peekly().times(1).returning(|_| {
+            blub.expect_peekly().once().returning(|_| {
                 Err(io::Error::new(
                     io::ErrorKind::ConnectionAborted,
                     ERROR_MESSAGE,
@@ -409,24 +411,16 @@ pub mod test {
             Ok(Box::new(blub))
         });
 
-        msdstream.expect_shutdownly().times(1).returning(|| Ok(()));
+        msdstream.expect_shutdownly().once().returning(|| Ok(()));
 
-        let return_len = |buf: &[u8]| Ok(buf.len());
-
-        let mut logger = Box::new(MockLogger::new());
+        let mut logger = MockLogger::new();
         logger
-            .expect_write()
-            .times(1)
-            .with(eq("got error: ".as_bytes()))
-            .returning(return_len);
+            .expect_log()
+            .once()
+            .with(eq(format!("got error: {}", ERROR_MESSAGE)))
+            .returning(nothing);
 
-        logger
-            .expect_write()
-            .times(1)
-            .with(eq(ERROR_MESSAGE.as_bytes()))
-            .returning(return_len);
-
-        let dc = DenonConnection::new(Box::new(msdstream), logger);
+        let dc = DenonConnection::new(Box::new(msdstream), Rc::new(logger));
         assert!(dc.is_ok());
     }
 }

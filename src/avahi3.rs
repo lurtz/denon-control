@@ -1,4 +1,5 @@
 use crate::avahi_error::Error;
+use crate::logger::Logger;
 use std::any::Any;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
@@ -11,7 +12,7 @@ struct Context {
     service_discovery: Option<ServiceDiscovery>,
 }
 
-fn get_hostname(service_type: ServiceType) -> Result<ServiceDiscovery, Error> {
+fn get_hostname(service_type: ServiceType, logger: &dyn Logger) -> Result<ServiceDiscovery, Error> {
     let context: Arc<Mutex<Context>> = Arc::default();
     let mut browser = MdnsBrowser::new(service_type);
     browser.set_service_discovered_callback(Box::new(on_service_discovered));
@@ -32,7 +33,7 @@ fn get_hostname(service_type: ServiceType) -> Result<ServiceDiscovery, Error> {
     {
         match event_loop.poll(Duration::from_secs(0)) {
             Ok(_) => {}
-            Err(x) => println!("{}", x),
+            Err(x) => logger.log(&format!("{}", x)),
         }
     }
 
@@ -62,8 +63,8 @@ fn get_roap_service_type() -> ServiceType {
     ServiceType::new("raop", "tcp").unwrap()
 }
 
-pub fn get_receiver() -> Result<String, Error> {
-    let sd = get_hostname(get_roap_service_type())?;
+pub fn get_receiver(logger: &dyn Logger) -> Result<String, Error> {
+    let sd = get_hostname(get_roap_service_type(), logger)?;
     if let Some(txt) = sd.txt() {
         for (_type, value) in txt.iter() {
             if value.contains("DENON") {
@@ -77,7 +78,7 @@ pub fn get_receiver() -> Result<String, Error> {
 #[cfg(test)]
 mod test {
     use super::{get_receiver, get_roap_service_type, on_service_discovered, Context};
-    use crate::{avahi3::get_hostname, avahi_error::Error};
+    use crate::{avahi3::get_hostname, avahi_error::Error, logger::MockLogger};
     use std::{
         net::TcpStream,
         sync::{Arc, Mutex},
@@ -99,7 +100,8 @@ mod test {
 
     #[test]
     fn get_receiver_may_return() {
-        match get_receiver() {
+        let logger = MockLogger::new();
+        match get_receiver(&logger) {
             // TODO test sometimes gets address but fails to connect, why?
             // - one reason: not all computers with raop mDNS service have telnet (port 23) running
             Ok(address) => {
@@ -113,7 +115,8 @@ mod test {
 
     #[test]
     fn get_hostname_returns() {
-        match get_hostname(get_roap_service_type()) {
+        let logger = MockLogger::new();
+        match get_hostname(get_roap_service_type(), &logger) {
             Ok(address) => {
                 let stream = TcpStream::connect((address.host_name().clone(), *address.port()));
                 println!(
@@ -130,8 +133,12 @@ mod test {
 
     #[test]
     fn timeout() {
+        let logger = MockLogger::new();
         let sn = ServiceType::new("does_not_exit", "tcp").unwrap();
-        assert!(matches!(get_hostname(sn), Err(Error::NoHostsFound)));
+        assert!(matches!(
+            get_hostname(sn, &logger),
+            Err(Error::NoHostsFound)
+        ));
     }
 
     #[test]

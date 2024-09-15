@@ -1,10 +1,10 @@
 use assert_cmd::prelude::*; // Add methods on commands
-use denon_control::{read, write_string};
+use denon_control::read;
 use parameterized::parameterized;
 use predicates::prelude::*; // Used for writing assertions
 use predicates::str::contains;
 use std::{
-    io::{self, Read},
+    io::{self, Read, Write},
     net::{TcpListener, TcpStream},
     process::Command,
     thread::{self, JoinHandle},
@@ -101,13 +101,13 @@ fn queries_receiver_state_and_gets_state_one_by_one(
     let acceptor = thread::spawn(move || -> Result<(TcpStream, Vec<String>), io::Error> {
         let mut to_receiver = listen_socket.accept()?.0;
         let mut received_data = read(&mut to_receiver, 1)?;
-        write_string(&mut to_receiver, format!("PW{}\r", power))?;
+        to_receiver.write_all(format!("PW{}\r", power).as_bytes())?;
         received_data.append(&mut read(&mut to_receiver, 1)?);
-        write_string(&mut to_receiver, format!("SI{}\r", input))?;
+        to_receiver.write_all(format!("SI{}\r", input).as_bytes())?;
         received_data.append(&mut read(&mut to_receiver, 1)?);
-        write_string(&mut to_receiver, format!("MV{}\r", volume))?;
+        to_receiver.write_all(format!("MV{}\r", volume).as_bytes())?;
         received_data.append(&mut read(&mut to_receiver, 1)?);
-        write_string(&mut to_receiver, format!("MVMAX{}\r", max_volume))?;
+        to_receiver.write_all(format!("MVMAX{}\r", max_volume).as_bytes())?;
         Ok((to_receiver, received_data))
     });
 
@@ -150,7 +150,7 @@ fn queries_receiver_state_and_gets_all_states_at_once(
             "PW{}\rSI{}\rMV{}\rMVMAX{}\r",
             power, input, volume, max_volume
         );
-        write_string(&mut to_receiver, response)?;
+        to_receiver.write_all(response.as_bytes())?;
 
         Ok((to_receiver, received_data))
     });
