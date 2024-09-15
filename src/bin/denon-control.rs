@@ -4,9 +4,11 @@ use denon_control::{
 use std::env;
 
 fn main() -> Result<(), Error> {
-    let args = parse_args(env::args().collect());
-    let (denon_name, denon_port) = get_receiver_and_port(&args, get_avahi_impl(&args))?;
+    let mut logger = Box::new(std::io::stdout());
+    let args = parse_args(env::args().collect(), &mut logger);
+    let (denon_name, denon_port) =
+        get_receiver_and_port(&args, &mut logger, get_avahi_impl(&args))?;
     let s = create_tcp_stream(denon_name.as_str(), denon_port)?;
-    main2(args, s, Box::new(std::io::stdout()))?;
+    main2(args, s, logger)?;
     Ok(())
 }
