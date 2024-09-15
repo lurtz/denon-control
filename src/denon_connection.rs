@@ -2,8 +2,10 @@ use crate::logger::Logger;
 use crate::parse::parse;
 use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
+use crate::{create_tcp_stream, StdoutLogger};
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
+use std::net::{TcpListener, TcpStream};
 use std::panic;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -74,13 +76,14 @@ pub fn read(stream: &dyn ReadStream, lines: u8) -> Result<Vec<String>, std::io::
     Ok(result)
 }
 
-fn thread_func_impl(
+pub fn thread_func_impl(
     stream: &dyn ReadStream,
     state: Arc<Mutex<HashMap<State, StateValue>>>,
 ) -> Result<(), std::io::Error> {
     loop {
         match read(stream, 1) {
             Ok(status_update) => {
+                // println!("response == {:?}", status_update);
                 let parsed_response = parse_response(&status_update);
                 let mut locked_state = state.lock().unwrap();
                 for sstate in parsed_response {
@@ -179,32 +182,32 @@ impl Drop for DenonConnection {
     }
 }
 
+pub fn create_connected_connection() -> Result<(TcpStream, DenonConnection), io::Error> {
+    let listen_socket = TcpListener::bind("localhost:0")?;
+    let addr = listen_socket.local_addr()?;
+    let s = create_tcp_stream(addr.ip().to_string().as_str(), addr.port())?;
+    let dc = DenonConnection::new(s, Rc::new(StdoutLogger::default()))?;
+    let (to_denon_client, _) = listen_socket.accept()?;
+    Ok((to_denon_client, dc))
+}
+
 #[cfg(test)]
 pub mod test {
     use mockall::Sequence;
     use predicates::ord::eq;
 
-    use super::{thread_func_impl, DenonConnection};
-    use crate::denon_connection::{read, write_string};
+    use super::{
+        create_connected_connection, read, thread_func_impl, write_string, DenonConnection,
+    };
     use crate::logger::{nothing, MockLogger};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
-    use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
-    use crate::StdoutLogger;
+    use crate::stream::{MockReadStream, MockShutdownStream};
     use std::cmp::min;
-    use std::io::{self, Error};
+    use std::io::{self, Error, Write};
     use std::net::{TcpListener, TcpStream};
     use std::rc::Rc;
     use std::sync::Arc;
     use std::thread::yield_now;
-
-    pub fn create_connected_connection() -> Result<(TcpStream, DenonConnection), io::Error> {
-        let listen_socket = TcpListener::bind("localhost:0")?;
-        let addr = listen_socket.local_addr()?;
-        let s = create_tcp_stream(addr.ip().to_string().as_str(), addr.port())?;
-        let dc = DenonConnection::new(s, Rc::new(StdoutLogger::default()))?;
-        let (to_denon_client, _) = listen_socket.accept()?;
-        Ok((to_denon_client, dc))
-    }
 
     fn copy_string_into_slice(src: &str, dst: &mut [u8]) -> usize {
         let length = min(src.len(), dst.len());
@@ -307,6 +310,18 @@ pub mod test {
         wait_for_value_in_database!(dc, SetState::MainVolume(320));
         assert_db_value!(dc, SetState::MainVolume(320));
 
+        Ok(())
+    }
+
+    #[test]
+    fn connection_discards_invalid_data() -> Result<(), io::Error> {
+        let (mut to_denon_client, mut dc) = create_connected_connection()?;
+        let data = vec![
+            0xcu8, 0xcu8, 0xcu8, 0xcu8, 'M' as u8, 'V' as u8, 'M' as u8, 'A' as u8, 'X' as u8,
+            0xcu8, 0xcu8, 0xcu8, 0xcu8, 0xdu8,
+        ];
+        to_denon_client.write_all(&data[..])?;
+        assert_eq!(StateValue::Unknown, dc.get(State::MaxVolume)?);
         Ok(())
     }
 
