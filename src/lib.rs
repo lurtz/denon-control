@@ -101,7 +101,7 @@ pub fn get_receiver_and_port(
         },
         None => (get_rec(logger)?, default_port),
     };
-    let _ = logger.log(&format!("using receiver: {}:{}", denon_name, port));
+    logger.log(&format!("using receiver: {}:{}", denon_name, port));
     Ok((denon_name, port))
 }
 
@@ -136,8 +136,6 @@ pub fn main2(
 
 #[cfg(test)]
 mod test {
-    use predicates::ord::eq;
-
     use crate::denon_connection::{read, test::create_connected_connection, write_string};
     use crate::error::Error;
     use crate::logger::{nothing, MockLogger};
@@ -145,6 +143,7 @@ mod test {
     use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
     use crate::{avahi, avahi3, avahi_error, GetReceiverFn};
     use crate::{get_avahi_impl, get_receiver_and_port, main2, parse_args, print_status};
+    use predicates::ord::eq;
     use std::io;
     use std::net::{TcpListener, TcpStream};
     use std::thread;

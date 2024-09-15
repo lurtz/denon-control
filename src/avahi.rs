@@ -41,8 +41,8 @@ mod test {
 
     #[test]
     fn get_receiver_may_return() {
-        let mut logger = MockLogger::new();
-        match get_receiver(&mut logger) {
+        let logger = MockLogger::new();
+        match get_receiver(&logger) {
             Ok(address) => assert!(TcpStream::connect((address, 23)).is_ok()),
             Err(e) => {
                 println!("{}", e.to_string());

@@ -100,8 +100,8 @@ mod test {
 
     #[test]
     fn get_receiver_may_return() {
-        let mut logger = MockLogger::new();
-        match get_receiver(&mut logger) {
+        let logger = MockLogger::new();
+        match get_receiver(&logger) {
             // TODO test sometimes gets address but fails to connect, why?
             // - one reason: not all computers with raop mDNS service have telnet (port 23) running
             Ok(address) => {
@@ -115,8 +115,8 @@ mod test {
 
     #[test]
     fn get_hostname_returns() {
-        let mut logger = MockLogger::new();
-        match get_hostname(get_roap_service_type(), &mut logger) {
+        let logger = MockLogger::new();
+        match get_hostname(get_roap_service_type(), &logger) {
             Ok(address) => {
                 let stream = TcpStream::connect((address.host_name().clone(), *address.port()));
                 println!(
@@ -133,10 +133,10 @@ mod test {
 
     #[test]
     fn timeout() {
-        let mut logger = MockLogger::new();
+        let logger = MockLogger::new();
         let sn = ServiceType::new("does_not_exit", "tcp").unwrap();
         assert!(matches!(
-            get_hostname(sn, &mut logger),
+            get_hostname(sn, &logger),
             Err(Error::NoHostsFound)
         ));
     }
