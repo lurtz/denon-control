@@ -322,7 +322,6 @@ mod test {
 
     #[test]
     fn main2_test() -> Result<(), io::Error> {
-        // TODO use mocks
         let mut mlogger = Box::new(MockLogger::new());
         let listen_socket = TcpListener::bind("localhost:0")?;
         let local_port = listen_socket.local_addr()?.port();
