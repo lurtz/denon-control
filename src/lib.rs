@@ -7,23 +7,23 @@ mod avahi3;
 mod avahi_error;
 mod denon_connection;
 mod error;
+mod logger;
 mod parse;
 mod state;
 mod stream;
-
-#[cfg(test)]
-mod logger;
 
 pub use denon_connection::read;
 use denon_connection::DenonConnection;
 pub use error::Error;
 use getopts::Options;
+use logger::Logger2;
+pub use logger::StdoutLogger;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
-use std::{cell::RefCell, io::Write, rc::Rc};
+use std::rc::Rc;
 pub use stream::create_tcp_stream;
 use stream::ConnectionStream;
 
-type GetReceiverFn = fn(&mut dyn Write) -> Result<String, avahi_error::Error>;
+type GetReceiverFn = fn(&dyn Logger2) -> Result<String, avahi_error::Error>;
 
 // status object shall get the current status of the avr 1912
 // easiest way would be a map<Key, Value> where Value is an enum of u32 and String
@@ -31,7 +31,7 @@ type GetReceiverFn = fn(&mut dyn Write) -> Result<String, avahi_error::Error>;
 // the status object can be shared or the communication thread can be asked about a
 // status which queries the receiver if it is not set
 
-pub fn parse_args(args: Vec<String>, logger: &mut dyn Write) -> getopts::Matches {
+pub fn parse_args(args: Vec<String>, logger: &dyn Logger2) -> getopts::Matches {
     let mut ops = Options::new();
     ops.optopt(
         "a",
@@ -59,7 +59,7 @@ pub fn parse_args(args: Vec<String>, logger: &mut dyn Write) -> getopts::Matches
 
     if arguments.opt_present("h") {
         let brief = format!("Usage: {} [options]", args[0]);
-        let _ = write!(logger, "{}", ops.usage(&brief));
+        logger.log(&brief);
         let exit_success: i32 = 0;
         std::process::exit(exit_success);
     }
@@ -87,7 +87,7 @@ pub fn get_avahi_impl(args: &getopts::Matches) -> GetReceiverFn {
 
 pub fn get_receiver_and_port(
     args: &getopts::Matches,
-    logger: &mut dyn Write,
+    logger: &dyn Logger2,
     get_rec: GetReceiverFn,
 ) -> Result<(String, u16), avahi_error::Error> {
     let default_port = 23;
@@ -101,20 +101,20 @@ pub fn get_receiver_and_port(
         },
         None => (get_rec(logger)?, default_port),
     };
-    let _ = writeln!(logger, "using receiver: {}:{}", denon_name, port);
+    let _ = logger.log(&format!("using receiver: {}:{}", denon_name, port));
     Ok((denon_name, port))
 }
 
 pub fn main2(
     args: getopts::Matches,
     stream: Box<dyn ConnectionStream>,
-    logger: Box<dyn Write>,
+    logger: Box<dyn Logger2>,
 ) -> Result<(), Error> {
-    let rclogger = Rc::new(RefCell::new(logger));
+    let rclogger: Rc<dyn Logger2> = logger.into();
     let mut dc = DenonConnection::new(stream, rclogger.clone())?;
 
     if args.opt_present("s") {
-        let _ = writeln!(rclogger.borrow_mut(), "{}", print_status(&mut dc)?);
+        rclogger.log(&print_status(&mut dc)?);
     }
     if let Some(p) = args.opt_str("p") {
         let state = get_state(PowerState::states(), p.as_str())?;
@@ -140,7 +140,7 @@ mod test {
 
     use crate::denon_connection::{read, test::create_connected_connection, write_string};
     use crate::error::Error;
-    use crate::logger::MockLogger;
+    use crate::logger::{nothing, MockLogger2};
     use crate::state::{PowerState, SetState, SourceInputState, State};
     use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
     use crate::{avahi, avahi3, avahi_error, GetReceiverFn};
@@ -149,38 +149,34 @@ mod test {
     use std::net::{TcpListener, TcpStream};
     use std::thread;
 
-    fn return_len(buf: &[u8]) -> Result<usize, io::Error> {
-        Ok(buf.len())
-    }
-
     #[test]
     #[should_panic]
     fn parse_args_parnics_with_empty_vec() {
-        let mut logger = MockLogger::new();
-        parse_args(vec![], &mut logger);
+        let logger = MockLogger2::new();
+        parse_args(vec![], &logger);
     }
 
     #[test]
     #[should_panic]
     fn parse_args_parnics_with_unknown_option() {
-        let mut logger = MockLogger::new();
+        let logger = MockLogger2::new();
         let string_args = vec!["blub", "-w"];
         parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
     }
 
     #[test]
     fn parse_args_works_with_empty_strings() {
-        let mut logger = MockLogger::new();
-        parse_args(vec!["".to_string()], &mut logger);
-        parse_args(vec!["blub".to_string()], &mut logger);
+        let logger = MockLogger2::new();
+        parse_args(vec!["".to_string()], &logger);
+        parse_args(vec!["blub".to_string()], &logger);
     }
 
     #[test]
     fn parse_args_short_options() {
-        let mut logger = MockLogger::new();
+        let logger = MockLogger2::new();
         let string_args = vec![
             "blub",
             "-a",
@@ -196,7 +192,7 @@ mod test {
         ];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
         assert!(matches!(args.opt_str("a"), Some(x) if x == "some_host"));
         assert!(matches!(args.opt_str("p"), Some(x) if x == "OFF"));
@@ -209,7 +205,7 @@ mod test {
 
     #[test]
     fn parse_args_long_options() {
-        let mut logger = MockLogger::new();
+        let logger = MockLogger2::new();
         let string_args = vec![
             "blub",
             "--address",
@@ -225,7 +221,7 @@ mod test {
         ];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
         assert!(matches!(args.opt_str("a"), Some(x) if x == "some_host"));
         assert!(matches!(args.opt_str("p"), Some(x) if x == "OFF"));
@@ -248,11 +244,11 @@ mod test {
 
     #[test]
     fn get_avahi_impl_extern_test() {
-        let mut logger = MockLogger::new();
+        let logger = MockLogger2::new();
         let string_args = vec!["blub", "--extern-avahi"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
 
         assert_eq!(avahi::get_receiver as GetReceiverFn, get_avahi_impl(&args));
@@ -260,11 +256,11 @@ mod test {
 
     #[test]
     fn get_avahi_impl_intern_test() {
-        let mut logger = MockLogger::new();
+        let logger = MockLogger2::new();
         let string_args = vec!["blub"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
 
         assert_eq!(avahi3::get_receiver as GetReceiverFn, get_avahi_impl(&args));
@@ -272,38 +268,18 @@ mod test {
 
     #[test]
     fn get_receiver_and_port_using_avahi_test() -> Result<(), Error> {
-        let mut logger = MockLogger::new();
+        let mut logger = MockLogger2::new();
         let string_args = vec!["blub"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
         let receiver_address = String::from("some_receiver");
         logger
-            .expect_write()
+            .expect_log()
             .once()
-            .with(eq("using receiver: ".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq("some_receiver".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq(":".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq("23".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq("\n".as_bytes()))
-            .returning(return_len);
+            .with(eq("using receiver: some_receiver:23"))
+            .returning(nothing);
         assert_eq!(
             (receiver_address, 23),
             get_receiver_and_port(&args, &mut logger, |_| Ok(String::from("some_receiver")))?
@@ -313,16 +289,14 @@ mod test {
 
     #[test]
     fn get_receiver_and_port_using_avahi_fails_test() -> Result<(), Error> {
-        let mut logger = MockLogger::new();
+        let logger = MockLogger2::new();
         let string_args = vec!["blub"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
         assert!(matches!(
-            get_receiver_and_port(&args, &mut logger, |_| Err(
-                avahi_error::Error::NoHostsFound
-            )),
+            get_receiver_and_port(&args, &logger, |_| Err(avahi_error::Error::NoHostsFound)),
             Err(avahi_error::Error::NoHostsFound)
         ));
         Ok(())
@@ -330,82 +304,42 @@ mod test {
 
     #[test]
     fn get_receiver_and_port_using_args_test() -> Result<(), Error> {
-        let mut logger = MockLogger::new();
+        let mut logger = MockLogger2::new();
         let string_args = vec!["blub", "-a", "blub_receiver"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
         let receiver_address = String::from("blub_receiver");
         logger
-            .expect_write()
+            .expect_log()
             .once()
-            .with(eq("using receiver: ".as_bytes()))
-            .returning(|buf| Ok(buf.len()));
-        logger
-            .expect_write()
-            .once()
-            .with(eq("blub_receiver".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq(":".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq("23".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq("\n".as_bytes()))
-            .returning(return_len);
+            .with(eq("using receiver: blub_receiver:23"))
+            .returning(nothing);
         assert_eq!(
             (receiver_address, 23),
-            get_receiver_and_port(&args, &mut logger, |_| Ok(String::from("some_receiver")))?
+            get_receiver_and_port(&args, &logger, |_| Ok(String::from("some_receiver")))?
         );
         Ok(())
     }
 
     #[test]
     fn get_receiver_and_port_using_args_with_port_test() -> Result<(), Error> {
-        let mut logger = MockLogger::new();
+        let mut logger = MockLogger2::new();
         let string_args = vec!["blub", "-a", "blub_receiver:666"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut logger,
+            &logger,
         );
         let receiver_address = String::from("blub_receiver");
         logger
-            .expect_write()
+            .expect_log()
             .once()
-            .with(eq("using receiver: ".as_bytes()))
-            .returning(|buf| Ok(buf.len()));
-        logger
-            .expect_write()
-            .once()
-            .with(eq("blub_receiver".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq(":".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq("666".as_bytes()))
-            .returning(return_len);
-        logger
-            .expect_write()
-            .once()
-            .with(eq("\n".as_bytes()))
-            .returning(return_len);
+            .with(eq("using receiver: blub_receiver:666"))
+            .returning(nothing);
         assert_eq!(
             (receiver_address, 666),
-            get_receiver_and_port(&args, &mut logger, |_| panic!())?
+            get_receiver_and_port(&args, &logger, |_| panic!())?
         );
         Ok(())
     }
@@ -413,7 +347,7 @@ mod test {
     #[test]
     fn main2_test() -> Result<(), io::Error> {
         // TODO use mocks
-        let mut mlogger = Box::new(MockLogger::new());
+        let mut mlogger = Box::new(MockLogger2::new());
         let listen_socket = TcpListener::bind("localhost:0")?;
         let local_port = listen_socket.local_addr()?.port();
         let string_args = vec![
@@ -430,7 +364,7 @@ mod test {
         ];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut mlogger,
+            &*mlogger,
         );
 
         let acceptor = thread::spawn(move || -> Result<(TcpStream, Vec<String>), io::Error> {
@@ -449,17 +383,11 @@ mod test {
 
         let s = create_tcp_stream("localhost", local_port)?;
         mlogger
-            .expect_write()
+            .expect_log()
             .once()
             .with(eq(
-        "Current status of receiver:\n\tPower(ON)\n\tSourceInput(DVD)\n\tMainVolume(230)\n\tMaxVolume(666)\n".as_bytes()
-        ))
-            .returning(return_len);
-        mlogger
-            .expect_write()
-            .once()
-            .with(eq("\n".as_bytes()))
-            .returning(return_len);
+        "Current status of receiver:\n\tPower(ON)\n\tSourceInput(DVD)\n\tMainVolume(230)\n\tMaxVolume(666)\n"
+        )).returning(nothing);
         assert!(main2(args, s, mlogger).is_ok());
 
         let (to_receiver, query_data) = acceptor.join().unwrap()?;
@@ -477,11 +405,11 @@ mod test {
 
     #[test]
     fn main2_less_args_test() -> Result<(), io::Error> {
-        let mut mlogger = Box::new(MockLogger::new());
+        let mut mlogger = Box::new(MockLogger2::new());
         let string_args = vec!["blub", "-a", "localhost"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
-            &mut mlogger,
+            &*mlogger,
         );
 
         let mut msdstream = Box::new(MockShutdownStream::new());
@@ -490,13 +418,17 @@ mod test {
             let mut blub = MockReadStream::new();
             blub.expect_peekly()
                 .once()
-                .returning(|_| Err(io::Error::new(io::ErrorKind::ConnectionAborted, "")));
+                .returning(|_| Err(io::Error::new(io::ErrorKind::ConnectionAborted, "ha")));
             Ok(Box::new(blub))
         });
 
         msdstream.expect_shutdownly().once().returning(|| Ok(()));
 
-        mlogger.expect_write().returning(return_len);
+        mlogger
+            .expect_log()
+            .once()
+            .with(eq("got error: ha"))
+            .returning(nothing);
 
         main2(args, msdstream, mlogger).unwrap();
 

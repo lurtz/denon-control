@@ -1,7 +1,7 @@
-use crate::avahi_error::Error;
-use std::{io::Write, process::Command};
+use crate::{avahi_error::Error, logger::Logger2};
+use std::process::Command;
 
-pub fn get_receiver(logger: &mut dyn Write) -> Result<String, Error> {
+pub fn get_receiver(logger: &dyn Logger2) -> Result<String, Error> {
     let output = Command::new("/usr/bin/avahi-browse")
         .arg("-p")
         .arg("-t")
@@ -19,12 +19,11 @@ pub fn get_receiver(logger: &mut dyn Write) -> Result<String, Error> {
         .collect();
 
     if denon_names.len() > 1 {
-        let _ = writeln!(
-            logger,
+        logger.log(&format!(
             "multiple receivers found: {:?}, taking: {}",
             denon_names, denon_names[0]
-        );
-        let _ = writeln!(logger, "use -a option if you want to use another receiver");
+        ));
+        logger.log("use -a option if you want to use another receiver");
     }
 
     if denon_names.is_empty() {
@@ -37,12 +36,12 @@ pub fn get_receiver(logger: &mut dyn Write) -> Result<String, Error> {
 #[cfg(test)]
 mod test {
     use super::get_receiver;
-    use crate::{avahi_error::Error, logger::MockLogger};
+    use crate::{avahi_error::Error, logger::MockLogger2};
     use std::net::TcpStream;
 
     #[test]
     fn get_receiver_may_return() {
-        let mut logger = MockLogger::new();
+        let mut logger = MockLogger2::new();
         match get_receiver(&mut logger) {
             Ok(address) => assert!(TcpStream::connect((address, 23)).is_ok()),
             Err(e) => {

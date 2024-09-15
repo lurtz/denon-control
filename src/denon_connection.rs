@@ -1,7 +1,7 @@
+use crate::logger::Logger2;
 use crate::parse::parse;
 use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
 use std::panic;
@@ -109,13 +109,13 @@ pub struct DenonConnection {
     state: Arc<Mutex<HashMap<State, StateValue>>>,
     to_receiver: Box<dyn ConnectionStream>,
     thread_handle: Option<JoinHandle<Result<(), io::Error>>>,
-    logger: Rc<RefCell<dyn Write>>,
+    logger: Rc<dyn Logger2>,
 }
 
 impl DenonConnection {
     pub fn new(
         to_receiver: Box<dyn ConnectionStream>,
-        logger: Rc<RefCell<dyn Write>>,
+        logger: Rc<dyn Logger2>,
     ) -> Result<DenonConnection, io::Error> {
         let state = Arc::new(Mutex::new(HashMap::new()));
         let cloned_state = state.clone();
@@ -171,7 +171,7 @@ impl Drop for DenonConnection {
         match thread_result {
             Ok(result) => {
                 if let Err(e) = result {
-                    let _ = write!(self.logger.borrow_mut(), "got error: {}", e);
+                    self.logger.log(&format!("got error: {}", e));
                 }
             }
             Err(e) => panic::resume_unwind(e),
@@ -186,10 +186,10 @@ pub mod test {
 
     use super::{thread_func_impl, DenonConnection};
     use crate::denon_connection::{read, write_string};
-    use crate::logger::MockLogger;
+    use crate::logger::{nothing, MockLogger2};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
     use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
-    use std::cell::RefCell;
+    use crate::StdoutLogger;
     use std::cmp::min;
     use std::io::{self, Error};
     use std::net::{TcpListener, TcpStream};
@@ -201,7 +201,7 @@ pub mod test {
         let listen_socket = TcpListener::bind("localhost:0")?;
         let addr = listen_socket.local_addr()?;
         let s = create_tcp_stream(addr.ip().to_string().as_str(), addr.port())?;
-        let dc = DenonConnection::new(s, Rc::new(RefCell::new(std::io::stdout())))?;
+        let dc = DenonConnection::new(s, Rc::new(StdoutLogger::new()))?;
         let (to_denon_client, _) = listen_socket.accept()?;
         Ok((to_denon_client, dc))
     }
@@ -413,25 +413,14 @@ pub mod test {
 
         msdstream.expect_shutdownly().once().returning(|| Ok(()));
 
-        // TODO DRY
-        let return_len = |buf: &[u8]| Ok(buf.len());
-
-        let logger = Rc::new(RefCell::new(MockLogger::new()));
+        let mut logger = MockLogger2::new();
         logger
-            .borrow_mut()
-            .expect_write()
+            .expect_log()
             .once()
-            .with(eq("got error: ".as_bytes()))
-            .returning(return_len);
+            .with(eq(format!("got error: {}", ERROR_MESSAGE)))
+            .returning(nothing);
 
-        logger
-            .borrow_mut()
-            .expect_write()
-            .once()
-            .with(eq(ERROR_MESSAGE.as_bytes()))
-            .returning(return_len);
-
-        let dc = DenonConnection::new(Box::new(msdstream), logger);
+        let dc = DenonConnection::new(Box::new(msdstream), Rc::new(logger));
         assert!(dc.is_ok());
     }
 }

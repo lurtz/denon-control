@@ -1,6 +1,6 @@
 use crate::avahi_error::Error;
+use crate::logger::Logger2;
 use std::any::Any;
-use std::io::Write;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use zeroconf::prelude::{TEventLoop, TMdnsBrowser};
@@ -14,7 +14,7 @@ struct Context {
 
 fn get_hostname(
     service_type: ServiceType,
-    logger: &mut dyn Write,
+    logger: &dyn Logger2,
 ) -> Result<ServiceDiscovery, Error> {
     let context: Arc<Mutex<Context>> = Arc::default();
     let mut browser = MdnsBrowser::new(service_type);
@@ -36,9 +36,7 @@ fn get_hostname(
     {
         match event_loop.poll(Duration::from_secs(0)) {
             Ok(_) => {}
-            Err(x) => {
-                let _ = writeln!(logger, "{}", x);
-            }
+            Err(x) => logger.log(&format!("{}", x)),
         }
     }
 
@@ -68,7 +66,7 @@ fn get_roap_service_type() -> ServiceType {
     ServiceType::new("raop", "tcp").unwrap()
 }
 
-pub fn get_receiver(logger: &mut dyn Write) -> Result<String, Error> {
+pub fn get_receiver(logger: &dyn Logger2) -> Result<String, Error> {
     let sd = get_hostname(get_roap_service_type(), logger)?;
     if let Some(txt) = sd.txt() {
         for (_type, value) in txt.iter() {
@@ -83,7 +81,7 @@ pub fn get_receiver(logger: &mut dyn Write) -> Result<String, Error> {
 #[cfg(test)]
 mod test {
     use super::{get_receiver, get_roap_service_type, on_service_discovered, Context};
-    use crate::{avahi3::get_hostname, avahi_error::Error, logger::MockLogger};
+    use crate::{avahi3::get_hostname, avahi_error::Error, logger::MockLogger2};
     use std::{
         net::TcpStream,
         sync::{Arc, Mutex},
@@ -105,7 +103,7 @@ mod test {
 
     #[test]
     fn get_receiver_may_return() {
-        let mut logger = MockLogger::new();
+        let mut logger = MockLogger2::new();
         match get_receiver(&mut logger) {
             // TODO test sometimes gets address but fails to connect, why?
             // - one reason: not all computers with raop mDNS service have telnet (port 23) running
@@ -120,7 +118,7 @@ mod test {
 
     #[test]
     fn get_hostname_returns() {
-        let mut logger = MockLogger::new();
+        let mut logger = MockLogger2::new();
         match get_hostname(get_roap_service_type(), &mut logger) {
             Ok(address) => {
                 let stream = TcpStream::connect((address.host_name().clone(), *address.port()));
@@ -138,7 +136,7 @@ mod test {
 
     #[test]
     fn timeout() {
-        let mut logger = MockLogger::new();
+        let mut logger = MockLogger2::new();
         let sn = ServiceType::new("does_not_exit", "tcp").unwrap();
         assert!(matches!(
             get_hostname(sn, &mut logger),
