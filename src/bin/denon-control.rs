@@ -5,7 +5,7 @@ use denon_control::{
 use std::env;
 
 fn main() -> Result<(), Error> {
-    let logger = Box::new(StdoutLogger::new());
+    let logger = Box::new(StdoutLogger::default());
     let args = parse_args(env::args().collect(), &*logger);
     let (denon_name, denon_port) = get_receiver_and_port(&args, &*logger, get_avahi_impl(&args))?;
     let s = create_tcp_stream(denon_name.as_str(), denon_port)?;

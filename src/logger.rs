@@ -8,13 +8,8 @@ pub trait Logger {
     fn log(&self, message: &str);
 }
 
+#[derive(Default)]
 pub struct StdoutLogger {}
-
-impl StdoutLogger {
-    pub fn new() -> Self {
-        StdoutLogger {}
-    }
-}
 
 impl Logger for StdoutLogger {
     fn log(&self, message: &str) {
