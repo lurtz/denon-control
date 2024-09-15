@@ -6,8 +6,7 @@ macro_rules! parsehelper {
     ($trimmed:expr, $op:expr, $ss:expr, $func:path) => {
         if $trimmed.starts_with($op.to_string().as_str()) {
             let value = get_value($trimmed, &$op);
-            let x = $func(value);
-            return Some($ss(x));
+            return $func(value).and_then(|x| Some($ss(x)));
         }
     };
 }
@@ -17,22 +16,24 @@ fn get_value<'a>(trimmed: &'a str, op: &State) -> &'a str {
     trimmed[to_skip..].trim()
 }
 
-fn parse_int(to_parse: &str) -> u32 {
-    let mut value = to_parse.parse::<u32>().unwrap();
-    if value < 100 {
-        value *= 10;
-    }
-    value
+fn parse_int(to_parse: &str) -> Option<u32> {
+    let value = to_parse.parse::<u32>();
+    value.ok().and_then(|mut v| {
+        if v < 100 {
+            v *= 10;
+        }
+        Some(v)
+    })
 }
 
-fn parse_power(value: &str) -> PowerState {
+fn parse_power(value: &str) -> Option<PowerState> {
     let ps = get_state(PowerState::states(), value);
-    ps.unwrap_or(PowerState::Standby)
+    ps.ok()
 }
 
-fn parse_source_input(value: &str) -> SourceInputState {
+fn parse_source_input(value: &str) -> Option<SourceInputState> {
     let sis = get_state(SourceInputState::states(), value);
-    sis.unwrap_or(SourceInputState::Unknown)
+    sis.ok()
 }
 
 pub fn parse(str: &str) -> Option<SetState> {
@@ -64,9 +65,12 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
-    fn max_volume_without_value_panics() {
-        parse("MVMAX");
+    fn max_volume_without_value_returns_none() {
+        assert_eq!(None, parse("MVMAX"));
+        assert_eq!(None, parse("MVMAXfda"));
+        assert_eq!(None, parse("MVMAXđðſæ"));
+        assert_eq!(None, parse("MVMAX&%"));
+        assert_eq!(None, parse("MVMAX!"));
     }
 
     #[test]
@@ -83,9 +87,11 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
-    fn main_volume_without_value_panics() {
-        parse("MV");
+    fn main_volume_without_value_returns_none() {
+        assert_eq!(None, parse("MV"));
+        assert_eq!(None, parse("MVŧ¶ŋđ"));
+        assert_eq!(None, parse("MV»«"));
+        assert_eq!(None, parse("MV²!"));
     }
 
     #[test]
@@ -105,8 +111,11 @@ mod test {
     fn power() {
         let create = |ps| Some(SetState::Power(ps));
 
-        assert_eq!(parse("PW"), create(PowerState::Standby));
-        assert_eq!(parse("PWOFF"), create(PowerState::Standby));
+        assert_eq!(parse("PW"), None);
+        assert_eq!(parse("PWđðæſ"), None);
+        assert_eq!(parse("PWfdasfdas"), None);
+        assert_eq!(parse("PWOFF"), None);
+        assert_eq!(parse("PWSTANDBY"), create(PowerState::Standby));
         assert_eq!(parse("PWON"), create(PowerState::On));
     }
 
@@ -114,8 +123,8 @@ mod test {
     fn source_input() {
         let create = |si| Some(SetState::SourceInput(si));
 
-        assert_eq!(parse("SI"), create(SourceInputState::Unknown));
-        assert_eq!(parse("SIblub"), create(SourceInputState::Unknown));
+        assert_eq!(parse("SI"), None);
+        assert_eq!(parse("SIblub"), None);
         assert_eq!(parse("SITV"), create(SourceInputState::Tv));
     }
 }
