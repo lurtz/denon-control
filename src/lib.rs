@@ -16,14 +16,14 @@ pub use denon_connection::read;
 use denon_connection::DenonConnection;
 pub use error::Error;
 use getopts::Options;
-use logger::Logger2;
+use logger::Logger;
 pub use logger::StdoutLogger;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
 use std::rc::Rc;
 pub use stream::create_tcp_stream;
 use stream::ConnectionStream;
 
-type GetReceiverFn = fn(&dyn Logger2) -> Result<String, avahi_error::Error>;
+type GetReceiverFn = fn(&dyn Logger) -> Result<String, avahi_error::Error>;
 
 // status object shall get the current status of the avr 1912
 // easiest way would be a map<Key, Value> where Value is an enum of u32 and String
@@ -31,7 +31,7 @@ type GetReceiverFn = fn(&dyn Logger2) -> Result<String, avahi_error::Error>;
 // the status object can be shared or the communication thread can be asked about a
 // status which queries the receiver if it is not set
 
-pub fn parse_args(args: Vec<String>, logger: &dyn Logger2) -> getopts::Matches {
+pub fn parse_args(args: Vec<String>, logger: &dyn Logger) -> getopts::Matches {
     let mut ops = Options::new();
     ops.optopt(
         "a",
@@ -87,7 +87,7 @@ pub fn get_avahi_impl(args: &getopts::Matches) -> GetReceiverFn {
 
 pub fn get_receiver_and_port(
     args: &getopts::Matches,
-    logger: &dyn Logger2,
+    logger: &dyn Logger,
     get_rec: GetReceiverFn,
 ) -> Result<(String, u16), avahi_error::Error> {
     let default_port = 23;
@@ -108,9 +108,9 @@ pub fn get_receiver_and_port(
 pub fn main2(
     args: getopts::Matches,
     stream: Box<dyn ConnectionStream>,
-    logger: Box<dyn Logger2>,
+    logger: Box<dyn Logger>,
 ) -> Result<(), Error> {
-    let rclogger: Rc<dyn Logger2> = logger.into();
+    let rclogger: Rc<dyn Logger> = logger.into();
     let mut dc = DenonConnection::new(stream, rclogger.clone())?;
 
     if args.opt_present("s") {
@@ -140,7 +140,7 @@ mod test {
 
     use crate::denon_connection::{read, test::create_connected_connection, write_string};
     use crate::error::Error;
-    use crate::logger::{nothing, MockLogger2};
+    use crate::logger::{nothing, MockLogger};
     use crate::state::{PowerState, SetState, SourceInputState, State};
     use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
     use crate::{avahi, avahi3, avahi_error, GetReceiverFn};
@@ -152,14 +152,14 @@ mod test {
     #[test]
     #[should_panic]
     fn parse_args_parnics_with_empty_vec() {
-        let logger = MockLogger2::new();
+        let logger = MockLogger::new();
         parse_args(vec![], &logger);
     }
 
     #[test]
     #[should_panic]
     fn parse_args_parnics_with_unknown_option() {
-        let logger = MockLogger2::new();
+        let logger = MockLogger::new();
         let string_args = vec!["blub", "-w"];
         parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
@@ -169,14 +169,14 @@ mod test {
 
     #[test]
     fn parse_args_works_with_empty_strings() {
-        let logger = MockLogger2::new();
+        let logger = MockLogger::new();
         parse_args(vec!["".to_string()], &logger);
         parse_args(vec!["blub".to_string()], &logger);
     }
 
     #[test]
     fn parse_args_short_options() {
-        let logger = MockLogger2::new();
+        let logger = MockLogger::new();
         let string_args = vec![
             "blub",
             "-a",
@@ -205,7 +205,7 @@ mod test {
 
     #[test]
     fn parse_args_long_options() {
-        let logger = MockLogger2::new();
+        let logger = MockLogger::new();
         let string_args = vec![
             "blub",
             "--address",
@@ -244,7 +244,7 @@ mod test {
 
     #[test]
     fn get_avahi_impl_extern_test() {
-        let logger = MockLogger2::new();
+        let logger = MockLogger::new();
         let string_args = vec!["blub", "--extern-avahi"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
@@ -256,7 +256,7 @@ mod test {
 
     #[test]
     fn get_avahi_impl_intern_test() {
-        let logger = MockLogger2::new();
+        let logger = MockLogger::new();
         let string_args = vec!["blub"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
@@ -268,7 +268,7 @@ mod test {
 
     #[test]
     fn get_receiver_and_port_using_avahi_test() -> Result<(), Error> {
-        let mut logger = MockLogger2::new();
+        let mut logger = MockLogger::new();
         let string_args = vec!["blub"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
@@ -289,7 +289,7 @@ mod test {
 
     #[test]
     fn get_receiver_and_port_using_avahi_fails_test() -> Result<(), Error> {
-        let logger = MockLogger2::new();
+        let logger = MockLogger::new();
         let string_args = vec!["blub"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
@@ -304,7 +304,7 @@ mod test {
 
     #[test]
     fn get_receiver_and_port_using_args_test() -> Result<(), Error> {
-        let mut logger = MockLogger2::new();
+        let mut logger = MockLogger::new();
         let string_args = vec!["blub", "-a", "blub_receiver"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
@@ -325,7 +325,7 @@ mod test {
 
     #[test]
     fn get_receiver_and_port_using_args_with_port_test() -> Result<(), Error> {
-        let mut logger = MockLogger2::new();
+        let mut logger = MockLogger::new();
         let string_args = vec!["blub", "-a", "blub_receiver:666"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),
@@ -347,7 +347,7 @@ mod test {
     #[test]
     fn main2_test() -> Result<(), io::Error> {
         // TODO use mocks
-        let mut mlogger = Box::new(MockLogger2::new());
+        let mut mlogger = Box::new(MockLogger::new());
         let listen_socket = TcpListener::bind("localhost:0")?;
         let local_port = listen_socket.local_addr()?.port();
         let string_args = vec![
@@ -405,7 +405,7 @@ mod test {
 
     #[test]
     fn main2_less_args_test() -> Result<(), io::Error> {
-        let mut mlogger = Box::new(MockLogger2::new());
+        let mut mlogger = Box::new(MockLogger::new());
         let string_args = vec!["blub", "-a", "localhost"];
         let args = parse_args(
             string_args.into_iter().map(|a| a.to_string()).collect(),

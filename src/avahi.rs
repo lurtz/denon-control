@@ -1,7 +1,7 @@
-use crate::{avahi_error::Error, logger::Logger2};
+use crate::{avahi_error::Error, logger::Logger};
 use std::process::Command;
 
-pub fn get_receiver(logger: &dyn Logger2) -> Result<String, Error> {
+pub fn get_receiver(logger: &dyn Logger) -> Result<String, Error> {
     let output = Command::new("/usr/bin/avahi-browse")
         .arg("-p")
         .arg("-t")
@@ -36,12 +36,12 @@ pub fn get_receiver(logger: &dyn Logger2) -> Result<String, Error> {
 #[cfg(test)]
 mod test {
     use super::get_receiver;
-    use crate::{avahi_error::Error, logger::MockLogger2};
+    use crate::{avahi_error::Error, logger::MockLogger};
     use std::net::TcpStream;
 
     #[test]
     fn get_receiver_may_return() {
-        let mut logger = MockLogger2::new();
+        let mut logger = MockLogger::new();
         match get_receiver(&mut logger) {
             Ok(address) => assert!(TcpStream::connect((address, 23)).is_ok()),
             Err(e) => {

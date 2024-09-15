@@ -1,4 +1,4 @@
-use crate::logger::Logger2;
+use crate::logger::Logger;
 use crate::parse::parse;
 use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
@@ -109,13 +109,13 @@ pub struct DenonConnection {
     state: Arc<Mutex<HashMap<State, StateValue>>>,
     to_receiver: Box<dyn ConnectionStream>,
     thread_handle: Option<JoinHandle<Result<(), io::Error>>>,
-    logger: Rc<dyn Logger2>,
+    logger: Rc<dyn Logger>,
 }
 
 impl DenonConnection {
     pub fn new(
         to_receiver: Box<dyn ConnectionStream>,
-        logger: Rc<dyn Logger2>,
+        logger: Rc<dyn Logger>,
     ) -> Result<DenonConnection, io::Error> {
         let state = Arc::new(Mutex::new(HashMap::new()));
         let cloned_state = state.clone();
@@ -186,7 +186,7 @@ pub mod test {
 
     use super::{thread_func_impl, DenonConnection};
     use crate::denon_connection::{read, write_string};
-    use crate::logger::{nothing, MockLogger2};
+    use crate::logger::{nothing, MockLogger};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
     use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
     use crate::StdoutLogger;
@@ -413,7 +413,7 @@ pub mod test {
 
         msdstream.expect_shutdownly().once().returning(|| Ok(()));
 
-        let mut logger = MockLogger2::new();
+        let mut logger = MockLogger::new();
         logger
             .expect_log()
             .once()
