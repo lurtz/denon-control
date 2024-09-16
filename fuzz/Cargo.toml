@@ -21,6 +21,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "main2"
+path = "fuzz_targets/main2.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "thread_func_impl"
 path = "fuzz_targets/thread_func_impl.rs"
 test = false

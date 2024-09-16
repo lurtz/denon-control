@@ -16,12 +16,12 @@ pub use denon_connection::read;
 use denon_connection::DenonConnection;
 pub use error::Error;
 use getopts::Options;
-use logger::Logger;
+pub use logger::Logger;
 pub use logger::StdoutLogger;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
 use std::rc::Rc;
 pub use stream::create_tcp_stream;
-use stream::ConnectionStream;
+pub use stream::ConnectionStream;
 
 // #[cfg(fuzzing)]
 pub use denon_connection::{create_connected_connection, thread_func_impl};
