@@ -4,13 +4,9 @@ use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
-use std::panic;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::thread;
 use std::time::Duration;
-
-const ESHUTDOWN: i32 = 108;
 
 pub fn write_string(stream: &mut dyn Write, input: &str) -> Result<(), std::io::Error> {
     stream.write_all(input.as_bytes())
@@ -43,12 +39,7 @@ pub fn read(stream: &dyn ReadStream, lines: u8) -> Result<Vec<String>, std::io::
         }
 
         if 0 == read_bytes {
-            // shutdown called
-            if result.is_empty() {
-                return Err(io::Error::from_raw_os_error(ESHUTDOWN));
-            } else {
-                break;
-            }
+            break;
         }
 
         // search for first \r in buffer
@@ -74,28 +65,25 @@ pub fn read(stream: &dyn ReadStream, lines: u8) -> Result<Vec<String>, std::io::
     Ok(result)
 }
 
-fn thread_func_impl(
+fn process_receiver_updates(
     stream: &dyn ReadStream,
-    state: Arc<Mutex<HashMap<State, StateValue>>>,
+    hstate: &mut HashMap<State, StateValue>,
 ) -> Result<(), std::io::Error> {
     loop {
         match read(stream, 1) {
             Ok(status_update) => {
                 let parsed_response = parse_response(&status_update);
-                let mut locked_state = state.lock().unwrap();
                 for sstate in parsed_response {
                     let (state, value) = sstate.convert();
-                    locked_state.insert(state, value);
+                    hstate.insert(state, value);
                 }
             }
-            // check for timeout error -> continue on timeout error, else abort
+            // check for timeout error -> return success on timeout error, else error
             Err(e) => {
                 if ErrorKind::TimedOut != e.kind() && ErrorKind::WouldBlock != e.kind() {
-                    if e.raw_os_error() != Some(ESHUTDOWN) {
-                        return Err(e);
-                    }
-                    return Ok(());
+                    return Err(e);
                 }
+                return Ok(());
             }
         }
     }
@@ -106,9 +94,8 @@ fn parse_response(response: &[String]) -> Vec<SetState> {
 }
 
 pub struct DenonConnection {
-    state: Arc<Mutex<HashMap<State, StateValue>>>,
+    state: HashMap<State, StateValue>,
     to_receiver: Box<dyn ConnectionStream>,
-    thread_handle: Option<JoinHandle<Result<(), io::Error>>>,
     logger: Rc<dyn Logger>,
 }
 
@@ -117,42 +104,33 @@ impl DenonConnection {
         to_receiver: Box<dyn ConnectionStream>,
         logger: Rc<dyn Logger>,
     ) -> Result<DenonConnection, io::Error> {
-        let state = Arc::new(Mutex::new(HashMap::new()));
-        let cloned_state = state.clone();
-        let s2 = to_receiver.get_readstream()?;
-
-        let threadhandle = thread::spawn(move || thread_func_impl(s2.as_ref(), cloned_state));
+        let state = HashMap::new();
 
         Ok(DenonConnection {
             state,
             to_receiver,
-            thread_handle: Some(threadhandle),
             logger,
         })
     }
 
     pub fn get(&mut self, op: State) -> Result<StateValue, io::Error> {
+        process_receiver_updates(self.to_receiver.get_readstream()?.as_ref(), &mut self.state)?;
         // should first check if the requested op is present in state
         // if it is not present it should send the request to the thread and wait until completion
         {
-            let locked_state = self.state.lock().unwrap();
-            if let Some(received_state) = locked_state.get(&op) {
+            if let Some(received_state) = self.state.get(&op) {
                 return Ok(*received_state);
             }
         }
         write_query(&mut self.to_receiver, op)?;
         for _ in 0..50 {
             thread::sleep(Duration::from_millis(10));
-            let locked_state = self.state.lock().unwrap();
-            if let Some(state) = locked_state.get(&op) {
+            process_receiver_updates(self.to_receiver.get_readstream()?.as_ref(), &mut self.state)?;
+            if let Some(state) = self.state.get(&op) {
                 return Ok(*state);
             }
         }
         Ok(StateValue::Unknown)
-    }
-
-    pub fn stop(&mut self) -> Result<(), io::Error> {
-        self.to_receiver.shutdownly()
     }
 
     pub fn set(&mut self, sstate: SetState) -> Result<(), io::Error> {
@@ -160,41 +138,20 @@ impl DenonConnection {
     }
 }
 
-impl Drop for DenonConnection {
-    fn drop(&mut self) {
-        let _ = self.stop();
-        let thread_result = self
-            .thread_handle
-            .take()
-            .expect("Non running thread is a bug")
-            .join();
-        match thread_result {
-            Ok(result) => {
-                if let Err(e) = result {
-                    self.logger.log(&format!("got error: {}", e));
-                }
-            }
-            Err(e) => panic::resume_unwind(e),
-        }
-    }
-}
-
 #[cfg(test)]
 pub mod test {
     use mockall::Sequence;
-    use predicates::ord::eq;
 
-    use super::{thread_func_impl, DenonConnection};
+    use super::{process_receiver_updates, DenonConnection};
     use crate::denon_connection::{read, write_string};
-    use crate::logger::{nothing, MockLogger};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
-    use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
+    use crate::stream::{create_tcp_stream, MockReadStream};
     use crate::StdoutLogger;
     use std::cmp::min;
+    use std::collections::HashMap;
     use std::io::{self, Error};
     use std::net::{TcpListener, TcpStream};
     use std::rc::Rc;
-    use std::sync::Arc;
     use std::thread::yield_now;
 
     pub fn create_connected_connection() -> Result<(TcpStream, DenonConnection), io::Error> {
@@ -363,8 +320,8 @@ pub mod test {
         mstream
             .expect_peekly()
             .returning(|_| Err(Error::from(io::ErrorKind::ConnectionAborted)));
-        let state = Arc::default();
-        let thread_err = thread_func_impl(&mstream, state);
+        let mut state = HashMap::default();
+        let thread_err = process_receiver_updates(&mstream, &mut state);
         assert!(thread_err.is_err());
         assert_eq!(
             io::ErrorKind::ConnectionAborted,
@@ -373,7 +330,7 @@ pub mod test {
     }
 
     #[test]
-    fn thread_func_impl_gets_timeout_then_error_and_returns() {
+    fn thread_func_impl_gets_timeout_and_returns() {
         let mut sequence = Sequence::new();
         let mut mstream = MockReadStream::new();
         mstream
@@ -381,46 +338,8 @@ pub mod test {
             .once()
             .in_sequence(&mut sequence)
             .returning(|_| Err(Error::from(io::ErrorKind::TimedOut)));
-        mstream
-            .expect_peekly()
-            .once()
-            .in_sequence(&mut sequence)
-            .returning(|_| Err(Error::from(io::ErrorKind::ConnectionAborted)));
-        let state = Arc::default();
-        let thread_err = thread_func_impl(&mstream, state);
-        assert!(thread_err.is_err());
-        assert_eq!(
-            io::ErrorKind::ConnectionAborted,
-            thread_err.unwrap_err().kind()
-        );
-    }
-
-    #[test]
-    fn drop_gets_error() {
-        static ERROR_MESSAGE: &str = "blub";
-        let mut msdstream = MockShutdownStream::new();
-
-        msdstream.expect_get_readstream().once().returning(|| {
-            let mut blub = MockReadStream::new();
-            blub.expect_peekly().once().returning(|_| {
-                Err(io::Error::new(
-                    io::ErrorKind::ConnectionAborted,
-                    ERROR_MESSAGE,
-                ))
-            });
-            Ok(Box::new(blub))
-        });
-
-        msdstream.expect_shutdownly().once().returning(|| Ok(()));
-
-        let mut logger = MockLogger::new();
-        logger
-            .expect_log()
-            .once()
-            .with(eq(format!("got error: {}", ERROR_MESSAGE)))
-            .returning(nothing);
-
-        let dc = DenonConnection::new(Box::new(msdstream), Rc::new(logger));
-        assert!(dc.is_ok());
+        let mut state = HashMap::default();
+        let thread_err = process_receiver_updates(&mstream, &mut state);
+        assert!(thread_err.is_ok());
     }
 }

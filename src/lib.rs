@@ -140,7 +140,7 @@ mod test {
     use crate::error::Error;
     use crate::logger::{nothing, MockLogger};
     use crate::state::{PowerState, SetState, SourceInputState, State};
-    use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
+    use crate::stream::{create_tcp_stream, MockShutdownStream};
     use crate::{avahi, avahi3, avahi_error, GetReceiverFn};
     use crate::{get_avahi_impl, get_receiver_and_port, main2, parse_args, print_status};
     use predicates::ord::eq;
@@ -377,27 +377,11 @@ mod test {
 
     #[test]
     fn main2_less_args_test() -> Result<(), io::Error> {
-        let mut mlogger = Box::new(MockLogger::new());
+        let mlogger = Box::new(MockLogger::new());
         let string_args = vec!["blub", "-a", "localhost"];
         let args = parse_args(to_string_vec(string_args), &*mlogger);
 
-        let mut msdstream = Box::new(MockShutdownStream::new());
-
-        msdstream.expect_get_readstream().once().returning(|| {
-            let mut blub = MockReadStream::new();
-            blub.expect_peekly()
-                .once()
-                .returning(|_| Err(io::Error::new(io::ErrorKind::ConnectionAborted, "ha")));
-            Ok(Box::new(blub))
-        });
-
-        msdstream.expect_shutdownly().once().returning(|| Ok(()));
-
-        mlogger
-            .expect_log()
-            .once()
-            .with(eq("got error: ha"))
-            .returning(nothing);
+        let msdstream = Box::new(MockShutdownStream::new());
 
         main2(args, msdstream, mlogger).unwrap();
 
