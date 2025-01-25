@@ -1,10 +1,8 @@
-use crate::logger::Logger;
 use crate::parse::parse;
 use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
-use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 
@@ -93,27 +91,19 @@ fn process_receiver_updates(
 }
 
 fn parse_response(response: &[String]) -> Vec<SetState> {
-    return response.iter().filter_map(|x| parse(x.as_str())).collect();
+    response.iter().filter_map(|x| parse(x.as_str())).collect()
 }
 
 pub struct DenonConnection {
     state: HashMap<State, StateValue>,
     to_receiver: Box<dyn ConnectionStream>,
-    logger: Rc<dyn Logger>,
 }
 
 impl DenonConnection {
-    pub fn new(
-        to_receiver: Box<dyn ConnectionStream>,
-        logger: Rc<dyn Logger>,
-    ) -> Result<DenonConnection, io::Error> {
+    pub fn new(to_receiver: Box<dyn ConnectionStream>) -> Result<DenonConnection, io::Error> {
         let state = HashMap::new();
 
-        Ok(DenonConnection {
-            state,
-            to_receiver,
-            logger,
-        })
+        Ok(DenonConnection { state, to_receiver })
     }
 
     pub fn get(&mut self, op: State) -> Result<StateValue, io::Error> {
@@ -149,19 +139,17 @@ pub mod test {
     use crate::denon_connection::{read, write_string};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
     use crate::stream::{create_tcp_stream, MockReadStream};
-    use crate::StdoutLogger;
     use std::cmp::min;
     use std::collections::HashMap;
     use std::io::{self, Error};
     use std::net::{TcpListener, TcpStream};
-    use std::rc::Rc;
     use std::thread::yield_now;
 
     pub fn create_connected_connection() -> Result<(TcpStream, DenonConnection), io::Error> {
         let listen_socket = TcpListener::bind("localhost:0")?;
         let addr = listen_socket.local_addr()?;
         let s = create_tcp_stream(addr.ip().to_string().as_str(), addr.port())?;
-        let dc = DenonConnection::new(s, Rc::new(StdoutLogger::default()))?;
+        let dc = DenonConnection::new(s)?;
         let (to_denon_client, _) = listen_socket.accept()?;
         Ok((to_denon_client, dc))
     }

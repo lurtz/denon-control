@@ -19,7 +19,6 @@ use getopts::Options;
 use logger::Logger;
 pub use logger::StdoutLogger;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
-use std::rc::Rc;
 pub use stream::create_tcp_stream;
 use stream::ConnectionStream;
 
@@ -110,11 +109,10 @@ pub fn main2(
     stream: Box<dyn ConnectionStream>,
     logger: Box<dyn Logger>,
 ) -> Result<(), Error> {
-    let rclogger: Rc<dyn Logger> = logger.into();
-    let mut dc = DenonConnection::new(stream, rclogger.clone())?;
+    let mut dc = DenonConnection::new(stream)?;
 
     if args.opt_present("s") {
-        rclogger.log(&print_status(&mut dc)?);
+        logger.log(&print_status(&mut dc)?);
     }
     if let Some(p) = args.opt_str("p") {
         let state = get_state(PowerState::states(), p.as_str())?;
