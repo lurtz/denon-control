@@ -73,6 +73,9 @@ fn process_receiver_updates(
         match read(stream, 1) {
             Ok(status_update) => {
                 let parsed_response = parse_response(&status_update);
+                if status_update.is_empty() {
+                    return Ok(());
+                }
                 for sstate in parsed_response {
                     let (state, value) = sstate.convert();
                     hstate.insert(state, value);
