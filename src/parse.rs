@@ -18,11 +18,11 @@ fn get_value<'a>(trimmed: &'a str, op: &State) -> &'a str {
 
 fn parse_int(to_parse: &str) -> Option<u32> {
     let value = to_parse.parse::<u32>();
-    value.ok().and_then(|mut v| {
+    value.ok().map(|mut v| {
         if v < 100 {
             v *= 10;
         }
-        Some(v)
+        v
     })
 }
 

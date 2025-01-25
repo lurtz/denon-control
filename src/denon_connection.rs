@@ -105,7 +105,7 @@ pub fn thread_func_impl(
 }
 
 fn parse_response(response: &[String]) -> Vec<SetState> {
-    return response.iter().filter_map(|x| parse(x.as_str())).collect();
+    response.iter().filter_map(|x| parse(x.as_str())).collect()
 }
 
 pub struct DenonConnection {
