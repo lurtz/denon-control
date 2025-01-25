@@ -144,13 +144,16 @@ impl DenonConnection {
             }
         }
         write_query(&mut self.to_receiver, op)?;
+        println!("wait for data {}", op);
         for _ in 0..50 {
-            thread::sleep(Duration::from_millis(10));
+            thread::sleep(Duration::from_millis(100));
             let locked_state = self.state.lock().unwrap();
             if let Some(state) = locked_state.get(&op) {
+                println!("got data");
                 return Ok(*state);
             }
         }
+        println!("timeout");
         Ok(StateValue::Unknown)
     }
 

@@ -32,16 +32,19 @@ impl ReadStream for FuzzStream {
         //     "buf.len() == {}, cpos == {}, data.len() == {}, data == {:?}",
         //     buf.len(),
         //     cpos,
-        //     self.data.len(),
+        //     self.data.borrow_mut().len(),
         //     self.data
         // );
         // this check is at first iteration always true, needs more adjustment
         if let Some(old_pos) = self.pos_at_last_peek.get() {
             if old_pos == cpos {
+                // println!("returning default values");
                 // implementation did not extract any data anymore. Test is done
                 // lets give, the data it needs to end the test
                 self.data
                     .replace("PWON\rSICD\rMV555\rMVMAX333\r".as_bytes().to_vec());
+                self.pos.replace(0);
+                self.pos_at_last_peek.replace(None);
                 // TODO how to terminate receive thread?
             }
         }
@@ -55,9 +58,11 @@ impl ReadStream for FuzzStream {
     }
 
     fn read_exactly(&self, buf: &mut [u8]) -> std::io::Result<()> {
+        // println!("read");
         let cpos = self.pos.get();
         assert!((self.data.borrow().len() - cpos) >= buf.len());
-        let _ = self.peekly(buf);
+        // BUG, peek() is not expecting being called ny read()
+        // let _ = self.peekly(buf);
         self.pos.replace(cpos + buf.len());
         Ok(())
     }
@@ -92,6 +97,7 @@ impl Logger for NoLogger {
 }
 
 fuzz_target!(|data: &[u8]| {
+    // println!("iter");
     let fuzz_stream = FuzzStream::new(data);
     let logger = Box::new(NoLogger {});
     let args = parse_args(vec!["blub".to_string(), "--status".to_string()], &*logger);
