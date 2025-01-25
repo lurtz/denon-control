@@ -227,7 +227,7 @@ fn setting_invalid_power_prints_error(power: &str) -> Result<(), Box<dyn std::er
         .stderr(contains(format!("given value {} does not match", power)));
 
     let mut to_receiver = acceptor.join().unwrap()?;
-    assert!(read(&mut to_receiver, 10).unwrap().is_empty());
+    assert!(read(&mut to_receiver, 10)?.is_empty());
 
     Ok(())
 }
@@ -265,7 +265,7 @@ fn input_prints_error(input: &str) -> Result<(), Box<dyn std::error::Error>> {
         .stderr(contains(format!("given value {} does not match", input)));
 
     let mut to_receiver = acceptor.join().unwrap()?;
-    assert!(read(&mut to_receiver, 10).unwrap().is_empty());
+    assert!(read(&mut to_receiver, 10)?.is_empty());
 
     Ok(())
 }
@@ -303,7 +303,7 @@ fn setting_invalid_volume_prints_error(volume: &str) -> Result<(), Box<dyn std::
         .stderr(contains(String::from("ParseInt")));
 
     let mut to_receiver = acceptor.join().unwrap()?;
-    assert!(read(&mut to_receiver, 10).unwrap().is_empty());
+    assert!(read(&mut to_receiver, 10)?.is_empty());
 
     Ok(())
 }
