@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use denon_control::{thread_func_impl, ReadStream};
+use denon_control::{process_receiver_updates, ReadStream};
 use libfuzzer_sys::fuzz_target;
 
 struct FuzzStream<'a> {
@@ -63,6 +63,6 @@ impl<'a> ReadStream for FuzzStream<'a> {
 
 fuzz_target!(|data: &[u8]| {
     let fuzz_stream = FuzzStream::new(data);
-    let state = Arc::new(Mutex::new(HashMap::new()));
-    let _ = thread_func_impl(&fuzz_stream, state);
+    let mut state = HashMap::new();
+    let _ = process_receiver_updates(&fuzz_stream, &mut state);
 });

@@ -19,12 +19,11 @@ use getopts::Options;
 pub use logger::Logger;
 pub use logger::StdoutLogger;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
-use std::rc::Rc;
 pub use stream::create_tcp_stream;
 pub use stream::ConnectionStream;
 
 // #[cfg(fuzzing)]
-pub use denon_connection::{create_connected_connection, thread_func_impl};
+pub use denon_connection::{create_connected_connection, process_receiver_updates};
 // #[cfg(fuzzing)]
 pub use stream::ReadStream;
 
@@ -115,11 +114,10 @@ pub fn main2(
     stream: Box<dyn ConnectionStream>,
     logger: Box<dyn Logger>,
 ) -> Result<(), Error> {
-    let rclogger: Rc<dyn Logger> = logger.into();
-    let mut dc = DenonConnection::new(stream, rclogger.clone())?;
+    let mut dc = DenonConnection::new(stream)?;
 
     if args.opt_present("s") {
-        rclogger.log(&print_status(&mut dc)?);
+        logger.log(&print_status(&mut dc)?);
     }
     if let Some(p) = args.opt_str("p") {
         let state = get_state(PowerState::states(), p.as_str())?;
@@ -145,7 +143,7 @@ mod test {
     use crate::error::Error;
     use crate::logger::{nothing, MockLogger};
     use crate::state::{PowerState, SetState, SourceInputState, State};
-    use crate::stream::{create_tcp_stream, MockReadStream, MockShutdownStream};
+    use crate::stream::{create_tcp_stream, MockShutdownStream};
     use crate::{avahi, avahi3, avahi_error, GetReceiverFn};
     use crate::{get_avahi_impl, get_receiver_and_port, main2, parse_args, print_status};
     use predicates::ord::eq;
@@ -382,27 +380,11 @@ mod test {
 
     #[test]
     fn main2_less_args_test() -> Result<(), io::Error> {
-        let mut mlogger = Box::new(MockLogger::new());
+        let mlogger = Box::new(MockLogger::new());
         let string_args = vec!["blub", "-a", "localhost"];
         let args = parse_args(to_string_vec(string_args), &*mlogger);
 
-        let mut msdstream = Box::new(MockShutdownStream::new());
-
-        msdstream.expect_get_readstream().once().returning(|| {
-            let mut blub = MockReadStream::new();
-            blub.expect_peekly()
-                .once()
-                .returning(|_| Err(io::Error::new(io::ErrorKind::ConnectionAborted, "ha")));
-            Ok(Box::new(blub))
-        });
-
-        msdstream.expect_shutdownly().once().returning(|| Ok(()));
-
-        mlogger
-            .expect_log()
-            .once()
-            .with(eq("got error: ha"))
-            .returning(nothing);
+        let msdstream = Box::new(MockShutdownStream::new());
 
         main2(args, msdstream, mlogger).unwrap();
 

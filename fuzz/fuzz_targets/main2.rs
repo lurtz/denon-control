@@ -79,12 +79,6 @@ impl Write for FuzzStream {
 }
 
 impl ConnectionStream for FuzzStream {
-    fn shutdownly(&self) -> std::io::Result<()> {
-        // TODO actually stop object returned by get_readstream()
-        self.pos_at_last_peek.replace(Some(self.pos.get()));
-        Ok(())
-    }
-
     fn get_readstream(&self) -> std::io::Result<Box<dyn ReadStream>> {
         Ok(Box::new(FuzzStream::new(&self.data.borrow_mut())))
     }

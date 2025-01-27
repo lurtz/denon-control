@@ -23,15 +23,10 @@ impl ReadStream for TcpStream {
 }
 
 pub trait ConnectionStream: Write {
-    fn shutdownly(&self) -> io::Result<()>;
     fn get_readstream(&self) -> io::Result<Box<dyn ReadStream>>;
 }
 
 impl ConnectionStream for TcpStream {
-    fn shutdownly(&self) -> io::Result<()> {
-        self.shutdown(std::net::Shutdown::Both)
-    }
-
     fn get_readstream(&self) -> io::Result<Box<dyn ReadStream>> {
         Ok(Box::new(self.try_clone()?))
     }
@@ -45,7 +40,6 @@ mock! {
         fn flush(&mut self) -> io::Result<()>;
     }
     impl ConnectionStream for ShutdownStream {
-        fn shutdownly(&self) -> io::Result<()>;
         fn get_readstream(&self) -> io::Result<Box<dyn ReadStream>>;
     }
 }
@@ -55,8 +49,7 @@ pub fn create_tcp_stream(
     denon_port: u16,
 ) -> Result<Box<dyn ConnectionStream>, io::Error> {
     let s = TcpStream::connect((denon_name, denon_port))?;
-    s.set_read_timeout(None)?;
-    s.set_nonblocking(false)?;
+    s.set_nonblocking(true)?;
     Ok(Box::new(s))
 }
 
