@@ -1,11 +1,6 @@
 #![no_main]
 
-use std::{
-    cell::Cell,
-    cmp::min,
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{cell::Cell, cmp::min, collections::HashMap};
 
 use denon_control::{process_receiver_updates, ReadStream};
 use libfuzzer_sys::fuzz_target;
