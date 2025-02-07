@@ -18,7 +18,7 @@ pub use error::Error;
 use getopts::Options;
 pub use logger::Logger;
 pub use logger::StdoutLogger;
-use state::{get_state, PowerState, SetState, SourceInputState, State};
+pub use state::{get_state, PowerState, SetState, SourceInputState, State};
 pub use stream::create_tcp_stream;
 pub use stream::ConnectionStream;
 
