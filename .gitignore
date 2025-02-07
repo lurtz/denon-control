@@ -2,3 +2,4 @@
 **/target/*
 *.swp
 Cargo.lock
+fuzz_coverage/*
