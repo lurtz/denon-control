@@ -72,7 +72,6 @@ pub fn process_receiver_updates(
     loop {
         match read(stream, 1) {
             Ok(status_update) => {
-                // println!("response == {:?}", status_update);
                 let parsed_response = parse_response(&status_update);
                 if status_update.is_empty() {
                     return Ok(());
@@ -119,7 +118,6 @@ impl DenonConnection {
             }
         }
         write_query(&mut self.to_receiver, op)?;
-        println!("wait for data {}", op);
         for _ in 0..50 {
             #[cfg(not(fuzzing))]
             {
@@ -127,11 +125,9 @@ impl DenonConnection {
             }
             process_receiver_updates(self.to_receiver.get_readstream()?.as_ref(), &mut self.state)?;
             if let Some(state) = self.state.get(&op) {
-                println!("got data");
                 return Ok(*state);
             }
         }
-        println!("timeout");
         Ok(StateValue::Unknown)
     }
 
