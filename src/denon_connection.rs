@@ -1,10 +1,8 @@
-use crate::create_tcp_stream;
 use crate::parse::parse;
 use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
-use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::time::Duration;
 
@@ -136,27 +134,27 @@ impl DenonConnection {
     }
 }
 
-pub fn create_connected_connection() -> Result<(TcpStream, DenonConnection), io::Error> {
-    let listen_socket = TcpListener::bind("localhost:0")?;
-    let addr = listen_socket.local_addr()?;
-    let s = create_tcp_stream(addr.ip().to_string().as_str(), addr.port())?;
-    let dc = DenonConnection::new(s)?;
-    let (to_denon_client, _) = listen_socket.accept()?;
-    Ok((to_denon_client, dc))
-}
-
 #[cfg(test)]
 pub mod test {
     use mockall::Sequence;
 
-    use super::{create_connected_connection, process_receiver_updates, read, write_string};
+    use super::{process_receiver_updates, read, write_string, DenonConnection};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
-    use crate::stream::MockReadStream;
+    use crate::stream::{create_tcp_stream, MockReadStream};
     use std::cmp::min;
     use std::collections::HashMap;
     use std::io::{self, Error, Write};
     use std::net::{TcpListener, TcpStream};
     use std::thread::yield_now;
+
+    pub fn create_connected_connection() -> Result<(TcpStream, DenonConnection), io::Error> {
+        let listen_socket = TcpListener::bind("localhost:0")?;
+        let addr = listen_socket.local_addr()?;
+        let s = create_tcp_stream(addr.ip().to_string().as_str(), addr.port())?;
+        let dc = DenonConnection::new(s)?;
+        let (to_denon_client, _) = listen_socket.accept()?;
+        Ok((to_denon_client, dc))
+    }
 
     fn copy_string_into_slice(src: &str, dst: &mut [u8]) -> usize {
         let length = min(src.len(), dst.len());

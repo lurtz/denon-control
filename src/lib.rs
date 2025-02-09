@@ -18,14 +18,9 @@ pub use error::Error;
 use getopts::Options;
 pub use logger::Logger;
 pub use logger::StdoutLogger;
-pub use state::{get_state, PowerState, SetState, SourceInputState, State};
+use state::{get_state, PowerState, SetState, SourceInputState, State};
 pub use stream::create_tcp_stream;
 pub use stream::ConnectionStream;
-
-// #[cfg(fuzzing)]
-pub use denon_connection::{create_connected_connection, process_receiver_updates};
-// #[cfg(fuzzing)]
-pub use stream::ReadStream;
 
 type GetReceiverFn = fn(&dyn Logger) -> Result<String, avahi_error::Error>;
 
@@ -152,7 +147,7 @@ pub fn main2(
 
 #[cfg(test)]
 mod test {
-    use crate::denon_connection::{create_connected_connection, read, write_string};
+    use crate::denon_connection::{read, test::create_connected_connection, write_string};
     use crate::error::Error;
     use crate::logger::{nothing, MockLogger};
     use crate::state::{PowerState, SetState, SourceInputState, State};
