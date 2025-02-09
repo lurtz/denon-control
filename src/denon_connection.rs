@@ -120,8 +120,11 @@ impl DenonConnection {
         }
         write_query(&mut self.to_receiver, op)?;
         println!("wait for data {}", op);
-        for _ in 0..5 {
-            thread::sleep(Duration::from_millis(10));
+        for _ in 0..50 {
+            #[cfg(not(fuzzing))]
+            {
+                thread::sleep(Duration::from_millis(10));
+            }
             process_receiver_updates(self.to_receiver.get_readstream()?.as_ref(), &mut self.state)?;
             if let Some(state) = self.state.get(&op) {
                 println!("got data");
