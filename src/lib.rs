@@ -20,7 +20,7 @@ pub use logger::Logger;
 pub use logger::StdoutLogger;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
 pub use stream::create_tcp_stream;
-pub use stream::ConnectionStream;
+use stream::ConnectionStream;
 
 type GetReceiverFn = fn(&dyn Logger) -> Result<String, avahi_error::Error>;
 

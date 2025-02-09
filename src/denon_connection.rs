@@ -63,7 +63,7 @@ pub fn read(stream: &dyn ReadStream, lines: u8) -> Result<Vec<String>, std::io::
     Ok(result)
 }
 
-pub fn process_receiver_updates(
+fn process_receiver_updates(
     stream: &dyn ReadStream,
     hstate: &mut HashMap<State, StateValue>,
 ) -> Result<(), std::io::Error> {
