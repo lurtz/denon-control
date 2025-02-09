@@ -57,15 +57,28 @@ pub fn parse_args(args: Vec<String>, logger: &dyn Logger) -> getopts::Matches {
     let arguments = match ops.parse(&args[1..]) {
         Ok(m) => m,
         Err(f) => {
-            panic!("{}", f.to_string())
+            let error_message = format!("{}", f);
+            logger.log(&error_message);
+            #[cfg(not(fuzzing))]
+            {
+                let exit_failure: i32 = 1;
+                std::process::exit(exit_failure);
+            }
+            #[cfg(fuzzing)]
+            {
+                ops.parse(Vec::<String>::new()).unwrap()
+            }
         }
     };
 
     if arguments.opt_present("h") {
         let brief = format!("Usage: {} [options]", args[0]);
         logger.log(&brief);
-        let exit_success: i32 = 0;
-        std::process::exit(exit_success);
+        #[cfg(not(fuzzing))]
+        {
+            let exit_success: i32 = 0;
+            std::process::exit(exit_success);
+        }
     }
 
     arguments

@@ -1,88 +1,9 @@
 #![no_main]
 
-use std::{
-    cell::{Cell, RefCell},
-    cmp::min,
-    io::Write,
-};
+use std::{io::Write, net::TcpListener};
 
-use denon_control::{main2, parse_args, ConnectionStream, Logger, ReadStream};
+use denon_control::{create_tcp_stream, main2, parse_args, Error, Logger};
 use libfuzzer_sys::fuzz_target;
-
-struct FuzzStream {
-    data: RefCell<Vec<u8>>,
-    pos: Cell<usize>,
-    pos_at_last_peek: Cell<Option<usize>>,
-}
-
-impl FuzzStream {
-    fn new(data: &[u8]) -> FuzzStream {
-        FuzzStream {
-            data: RefCell::new(data.to_vec()),
-            pos: Cell::new(0),
-            pos_at_last_peek: Cell::new(None),
-        }
-    }
-}
-
-impl ReadStream for FuzzStream {
-    fn peekly(&self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let cpos = self.pos.get();
-        // println!(
-        //     "buf.len() == {}, cpos == {}, data.len() == {}, data == {:?}",
-        //     buf.len(),
-        //     cpos,
-        //     self.data.borrow_mut().len(),
-        //     self.data
-        // );
-        // this check is at first iteration always true, needs more adjustment
-        if let Some(old_pos) = self.pos_at_last_peek.get() {
-            if old_pos == cpos {
-                // println!("returning default values");
-                // implementation did not extract any data anymore. Test is done
-                // lets give, the data it needs to end the test
-                self.data
-                    .replace("PWON\rSICD\rMV555\rMVMAX333\r".as_bytes().to_vec());
-                self.pos.replace(0);
-                self.pos_at_last_peek.replace(None);
-                // TODO how to terminate receive thread?
-            }
-        }
-        let length = min(self.data.borrow().len() - cpos, buf.len());
-        // println!("length == {}", length);
-        // TODO maybe return error if length == 0
-        //      returning 0 will terminate the loop
-        buf[0..length].copy_from_slice(&self.data.borrow()[cpos..(cpos + length)]);
-        self.pos_at_last_peek.replace(Some(cpos));
-        Ok(length)
-    }
-
-    fn read_exactly(&self, buf: &mut [u8]) -> std::io::Result<()> {
-        // println!("read");
-        let cpos = self.pos.get();
-        assert!((self.data.borrow().len() - cpos) >= buf.len());
-        // BUG, peek() is not expecting being called ny read()
-        // let _ = self.peekly(buf);
-        self.pos.replace(cpos + buf.len());
-        Ok(())
-    }
-}
-
-impl Write for FuzzStream {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl ConnectionStream for FuzzStream {
-    fn get_readstream(&self) -> std::io::Result<Box<dyn ReadStream>> {
-        Ok(Box::new(FuzzStream::new(&self.data.borrow_mut())))
-    }
-}
 
 struct NoLogger {}
 
@@ -90,10 +11,21 @@ impl Logger for NoLogger {
     fn log(&self, _message: &str) {}
 }
 
-fuzz_target!(|data: &[u8]| {
-    // println!("iter");
-    let fuzz_stream = FuzzStream::new(data);
+fn wrap_error(data: (&[u8], Vec<String>)) -> Result<(), Error> {
+    let listen_socket = TcpListener::bind("localhost:0")?;
+    let addr = listen_socket.local_addr()?;
+    let s = create_tcp_stream(addr.ip().to_string().as_str(), addr.port())?;
+    let (mut to_denon_client, _) = listen_socket.accept()?;
+    let (network_input, mut cmd_input) = data;
+    cmd_input.insert(0, "denon-control-fuzz-test".to_string());
+    to_denon_client.write_all(network_input)?;
     let logger = Box::new(NoLogger {});
-    let args = parse_args(vec!["blub".to_string(), "--status".to_string()], &*logger);
-    let _ = main2(args, Box::new(fuzz_stream), logger);
+    let args = parse_args(cmd_input, &*logger);
+    main2(args, s, logger)?;
+
+    Ok(())
+}
+
+fuzz_target!(|data: (&[u8], Vec<String>)| {
+    let _ = wrap_error(data);
 });
