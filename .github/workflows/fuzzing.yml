@@ -1,4 +1,4 @@
-name: Rust
+name: Fuzzing
 
 on:
   push:
@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  fuzzing-main2:
+  main2:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
