@@ -25,5 +25,7 @@ jobs:
         rustup default nightly
     - name: Install cargo-fuzz
       run: cargo install cargo-fuzz
-    - name: Build, run fuzz test
+    - name: fuzz main2
       run: cargo fuzz run main2 -- -max_total_time=60 -dict=fuzz/dictionaries/main2.dict
+    - name: fuzz get_receiver_and_port
+      run: cargo fuzz run get_receiver_and_port -- -max_total_time=60 -dict=fuzz/dictionaries/main2.dict

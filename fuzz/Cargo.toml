@@ -19,3 +19,10 @@ path = "fuzz_targets/main2.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "get_receiver_and_port"
+path = "fuzz_targets/get_receiver_and_port.rs"
+test = false
+doc = false
+bench = false
