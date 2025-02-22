@@ -29,6 +29,10 @@ jobs:
         rustup default nightly
     - name: Install cargo-fuzz
       run: cargo install cargo-fuzz
+    - name: Install llvm-tools
+      run: |
+        rustup component add llvm-tools-preview
+        cargo install cargo-binutils
     - name: fuzz main2
       run: |
         cargo fuzz run main2 -- -max_total_time=60 -dict=fuzz/dictionaries/main2.dict
@@ -39,11 +43,10 @@ jobs:
         cargo fuzz coverage get_receiver_and_port -- -dict=fuzz/dictionaries/main2.dict
     - name: Get code coverage
       run: |
-        RUSTUP_BIN=~/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin
         PROFDATA_FILES=$(find fuzz/coverage/*/ -name *.profdata)
         FUZZ_BINS=$(find target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/ -maxdepth 1 -type f -executable -exec echo "-object {}" \;)
-        $RUSTUP_BIN/llvm-profdata merge --output fuzz/coverage/merged.profdata $PROFDATA_FILES
-        $RUSTUP_BIN/llvm-cov show $FUZZ_BINS --format=html --output-dir=fuzz_coverage --show-directory-coverage -instr-profile=fuzz/coverage/merged.profdata
+        cargo profdata -- merge --output fuzz/coverage/merged.profdata $PROFDATA_FILES
+        cargo cov -- show $FUZZ_BINS --format=html --output-dir=fuzz_coverage --show-directory-coverage -instr-profile=fuzz/coverage/merged.profdata
     - name: Archive and upload coverage
       run: tar -cf fuzz_coverage.tar fuzz_coverage/
     - uses: actions/upload-artifact@v4
