@@ -1,6 +1,9 @@
 #![no_main]
 
-use std::{io::Write, net::TcpListener};
+use std::{
+    io::{self, Write},
+    net::TcpListener,
+};
 
 use denon_control::{create_tcp_stream, main2, parse_args, Error, Logger};
 use libfuzzer_sys::fuzz_target;
@@ -21,6 +24,20 @@ fn wrap_error(data: (&[u8], Vec<String>)) -> Result<(), Error> {
     to_denon_client.write_all(network_input)?;
     let logger = Box::new(NoLogger {});
     let args = parse_args(cmd_input, &*logger);
+
+    // wait until data is available in s
+    if !network_input.is_empty() {
+        let mut buf = [0; 10];
+        let rs = s.get_readstream()?;
+        while let Err(prs) = rs.peekly(&mut buf) {
+            if io::ErrorKind::WouldBlock == prs.kind() {
+                std::thread::yield_now();
+            } else {
+                panic!();
+            }
+        }
+    }
+
     main2(args, s, logger)?;
 
     Ok(())
