@@ -26,4 +26,4 @@ jobs:
     - name: Install cargo-fuzz
       run: cargo install cargo-fuzz
     - name: Build, run fuzz test
-      run: cargo fuzz run main2 -- -max_total_time=60
+      run: cargo fuzz run main2 -- -max_total_time=60 -dict=fuzz/dictionaries/main2.dict
