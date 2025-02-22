@@ -43,11 +43,13 @@ jobs:
         cargo fuzz coverage get_receiver_and_port -- -dict=fuzz/dictionaries/main2.dict
     - name: Get code coverage
       run: |
-        PROFDATA_FILES=$(find fuzz/coverage/*/ -name *.profdata)
-        FUZZ_BINS=$(find target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/ -maxdepth 1 -type f -executable -exec echo "-object {}" \;)
+        PROFDATA_FILES=$(find fuzz/coverage/*/ -name *.profdata -exec echo "{} " \; | tr -d '\n')
+        FUZZ_BINS=$(find target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/ -maxdepth 1 -type f -executable -exec echo "-object {} " \; | tr -d '\n')
         echo "profdata_files == $PROFDATA_FILES"
         echo "fuzz_bins == $FUZZ_BINS"
+        cargo profdata --help
         cargo profdata -- merge --output fuzz/coverage/merged.profdata $PROFDATA_FILES
+        cargo cov --help
         cargo cov -- show $FUZZ_BINS --format=html --output-dir=fuzz_coverage --show-directory-coverage -instr-profile=fuzz/coverage/merged.profdata
     - name: Archive and upload coverage
       run: tar -cf fuzz_coverage.tar fuzz_coverage/
