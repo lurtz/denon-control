@@ -11,3 +11,6 @@
 "--volume"
 "--input"
 "--status"
+"--address"
+"--extern-avahi"
+"--help"
