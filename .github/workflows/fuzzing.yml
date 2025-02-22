@@ -50,6 +50,7 @@ jobs:
         cargo profdata --help
         cargo profdata -- merge --output fuzz/coverage/merged.profdata $PROFDATA_FILES
         cargo cov --help
+        mkdir fuzz_coverage
         cargo cov -- show $FUZZ_BINS --format=html --output-dir=fuzz_coverage --show-directory-coverage -instr-profile=fuzz/coverage/merged.profdata
     - name: Archive and upload coverage
       run: tar -cf fuzz_coverage.tar fuzz_coverage/
