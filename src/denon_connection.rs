@@ -3,8 +3,6 @@ use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
-use std::thread;
-use std::time::Duration;
 
 pub fn write_string(stream: &mut dyn Write, input: &str) -> Result<(), std::io::Error> {
     stream.write_all(input.as_bytes())
