@@ -17,6 +17,8 @@ fn wrap_error(mut cmd_input: Vec<String>) -> Result<(), Error> {
 
     get_receiver_and_port(&args, &*logger, get_rec)?;
 
+    panic!();
+
     Ok(())
 }
 
