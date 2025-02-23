@@ -1,0 +1,70 @@
+name: Fuzzing
+
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzzing:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@cargo-llvm-cov
+    - name: Install avahi headers and utils
+      run: sudo apt-get update && sudo apt-get install libavahi-client-dev avahi-daemon avahi-utils pulseaudio-utils
+    - uses: r7kamura/rust-problem-matchers@v1
+    - name: Install nightly
+      run: |
+        rustup install nightly
+        rustup default nightly
+    - name: Install cargo-fuzz
+      run: cargo install cargo-fuzz
+    - name: Install llvm-tools
+      run: |
+        rustup component add llvm-tools-preview
+        cargo install cargo-binutils
+    - name: Initiate corpus
+      run: cp -r fuzz/corpus_minimized fuzz/corpus
+    - name: fuzz main2
+      run: |
+        cargo fuzz run main2 -- -max_total_time=60 -dict=fuzz/dictionaries/main2.dict
+    - name: coverage main2
+      run: |
+        cargo fuzz coverage main2 -- -dict=fuzz/dictionaries/main2.dict
+    - name: fuzz get_receiver_and_port
+      run: |
+        cargo fuzz run get_receiver_and_port -- -max_total_time=60 -dict=fuzz/dictionaries/main2.dict
+    - name: coverage get_receiver_and_port
+      run: |
+        cargo fuzz coverage get_receiver_and_port -- -dict=fuzz/dictionaries/main2.dict
+    - name: Get code coverage
+      run: |
+        PROFDATA_FILES=$(find fuzz/coverage/*/ -name *.profdata)
+        FUZZ_BINS=$(find target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/ -maxdepth 1 -type f -executable -exec echo "-object {}" \;)
+        cargo profdata -- merge --output fuzz/coverage/merged.profdata $PROFDATA_FILES
+        cargo cov -- show $FUZZ_BINS --format=html --output-dir=fuzz_coverage --show-directory-coverage -instr-profile=fuzz/coverage/merged.profdata
+    - uses: actions/upload-artifact@v4
+      id: artifact-upload-step
+      with:
+        name: fuzz_coverage
+        path: fuzz_coverage
+    - uses: actions/github-script@v7
+      with:
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: 'Fuzz testing coverage report ${{ steps.artifact-upload-step.outputs.artifact-url }}'
+          })

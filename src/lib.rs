@@ -16,7 +16,7 @@ pub use denon_connection::read;
 use denon_connection::DenonConnection;
 pub use error::Error;
 use getopts::Options;
-use logger::Logger;
+pub use logger::Logger;
 pub use logger::StdoutLogger;
 use state::{get_state, PowerState, SetState, SourceInputState, State};
 pub use stream::create_tcp_stream;
@@ -52,15 +52,28 @@ pub fn parse_args(args: Vec<String>, logger: &dyn Logger) -> getopts::Matches {
     let arguments = match ops.parse(&args[1..]) {
         Ok(m) => m,
         Err(f) => {
-            panic!("{}", f.to_string())
+            let error_message = format!("{}", f);
+            logger.log(&error_message);
+            #[cfg(not(fuzzing))]
+            {
+                let exit_failure: i32 = 1;
+                std::process::exit(exit_failure);
+            }
+            #[cfg(fuzzing)]
+            {
+                ops.parse(Vec::<String>::new()).unwrap()
+            }
         }
     };
 
     if arguments.opt_present("h") {
         let brief = format!("Usage: {} [options]", args[0]);
         logger.log(&brief);
-        let exit_success: i32 = 0;
-        std::process::exit(exit_success);
+        #[cfg(not(fuzzing))]
+        {
+            let exit_success: i32 = 0;
+            std::process::exit(exit_success);
+        }
     }
 
     arguments

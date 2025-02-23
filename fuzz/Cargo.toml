@@ -1,0 +1,28 @@
+[package]
+name = "denon-control-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.denon-control]
+path = ".."
+
+[[bin]]
+name = "main2"
+path = "fuzz_targets/main2.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "get_receiver_and_port"
+path = "fuzz_targets/get_receiver_and_port.rs"
+test = false
+doc = false
+bench = false

@@ -3,7 +3,9 @@ use crate::state::{SetState, State, StateValue};
 use crate::stream::{ConnectionStream, ReadStream};
 use std::collections::HashMap;
 use std::io::{self, ErrorKind, Write};
+#[cfg(not(fuzzing))]
 use std::thread;
+#[cfg(not(fuzzing))]
 use std::time::Duration;
 
 pub fn write_string(stream: &mut dyn Write, input: &str) -> Result<(), std::io::Error> {
@@ -117,7 +119,10 @@ impl DenonConnection {
         }
         write_query(&mut self.to_receiver, op)?;
         for _ in 0..50 {
-            thread::sleep(Duration::from_millis(10));
+            #[cfg(not(fuzzing))]
+            {
+                thread::sleep(Duration::from_millis(10));
+            }
             process_receiver_updates(self.to_receiver.get_readstream()?.as_ref(), &mut self.state)?;
             if let Some(state) = self.state.get(&op) {
                 return Ok(*state);
@@ -135,13 +140,12 @@ impl DenonConnection {
 pub mod test {
     use mockall::Sequence;
 
-    use super::{process_receiver_updates, DenonConnection};
-    use crate::denon_connection::{read, write_string};
+    use super::{process_receiver_updates, read, write_string, DenonConnection};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
     use crate::stream::{create_tcp_stream, MockReadStream};
     use std::cmp::min;
     use std::collections::HashMap;
-    use std::io::{self, Error};
+    use std::io::{self, Error, Write};
     use std::net::{TcpListener, TcpStream};
     use std::thread::yield_now;
 
@@ -255,6 +259,18 @@ pub mod test {
         wait_for_value_in_database!(dc, SetState::MainVolume(320));
         assert_db_value!(dc, SetState::MainVolume(320));
 
+        Ok(())
+    }
+
+    #[test]
+    fn connection_discards_invalid_data() -> Result<(), io::Error> {
+        let (mut to_denon_client, mut dc) = create_connected_connection()?;
+        let data = vec![
+            0xcu8, 0xcu8, 0xcu8, 0xcu8, 'M' as u8, 'V' as u8, 'M' as u8, 'A' as u8, 'X' as u8,
+            0xcu8, 0xcu8, 0xcu8, 0xcu8, 0xdu8,
+        ];
+        to_denon_client.write_all(&data[..])?;
+        assert_eq!(StateValue::Unknown, dc.get(State::MaxVolume)?);
         Ok(())
     }
 

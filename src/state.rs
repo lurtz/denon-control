@@ -50,7 +50,6 @@ pub enum SourceInputState {
     Ipd,
     Irp,
     Fvp,
-    Unknown,
 }
 
 impl Display for SourceInputState {
