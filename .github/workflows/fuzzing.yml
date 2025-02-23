@@ -18,8 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@cargo-llvm-cov
     - name: Install avahi headers and utils
       run: sudo apt-get update && sudo apt-get install libavahi-client-dev avahi-daemon avahi-utils pulseaudio-utils
     - uses: r7kamura/rust-problem-matchers@v1
@@ -48,17 +46,20 @@ jobs:
       run: |
         cargo fuzz coverage get_receiver_and_port -- -dict=fuzz/dictionaries/main2.dict
     - name: Get code coverage
+      if: ${{ github.event_name == 'pull_request' }}
       run: |
         PROFDATA_FILES=$(find fuzz/coverage/*/ -name *.profdata)
         FUZZ_BINS=$(find target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/ -maxdepth 1 -type f -executable -exec echo "-object {}" \;)
         cargo profdata -- merge --output fuzz/coverage/merged.profdata $PROFDATA_FILES
         cargo cov -- show $FUZZ_BINS --format=html --output-dir=fuzz_coverage --show-directory-coverage -instr-profile=fuzz/coverage/merged.profdata
     - uses: actions/upload-artifact@v4
+      if: ${{ github.event_name == 'pull_request' }}
       id: artifact-upload-step
       with:
         name: fuzz_coverage
         path: fuzz_coverage
     - uses: actions/github-script@v7
+      if: ${{ github.event_name == 'pull_request' }}
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
