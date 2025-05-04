@@ -140,9 +140,9 @@ impl DenonConnection {
 pub mod test {
     use mockall::Sequence;
 
-    use super::{process_receiver_updates, read, write_string, DenonConnection};
+    use super::{DenonConnection, process_receiver_updates, read, write_string};
     use crate::state::{PowerState, SetState, SourceInputState, State, StateValue};
-    use crate::stream::{create_tcp_stream, MockReadStream};
+    use crate::stream::{MockReadStream, create_tcp_stream};
     use std::cmp::min;
     use std::collections::HashMap;
     use std::io::{self, Error, Write};

@@ -1,6 +1,6 @@
 use denon_control::{
-    create_tcp_stream, get_avahi_impl, get_receiver_and_port, main2, parse_args, Error,
-    StdoutLogger,
+    Error, StdoutLogger, create_tcp_stream, get_avahi_impl, get_receiver_and_port, main2,
+    parse_args,
 };
 use std::env;
 

@@ -12,15 +12,15 @@ mod parse;
 mod state;
 mod stream;
 
-pub use denon_connection::read;
 use denon_connection::DenonConnection;
+pub use denon_connection::read;
 pub use error::Error;
 use getopts::Options;
 pub use logger::Logger;
 pub use logger::StdoutLogger;
-use state::{get_state, PowerState, SetState, SourceInputState, State};
-pub use stream::create_tcp_stream;
+use state::{PowerState, SetState, SourceInputState, State, get_state};
 use stream::ConnectionStream;
+pub use stream::create_tcp_stream;
 
 type GetReceiverFn = fn(&dyn Logger) -> Result<String, avahi_error::Error>;
 
@@ -149,10 +149,10 @@ pub fn main2(
 mod test {
     use crate::denon_connection::{read, test::create_connected_connection, write_string};
     use crate::error::Error;
-    use crate::logger::{nothing, MockLogger};
+    use crate::logger::{MockLogger, nothing};
     use crate::state::{PowerState, SetState, SourceInputState, State};
-    use crate::stream::{create_tcp_stream, MockShutdownStream};
-    use crate::{avahi, avahi3, avahi_error, GetReceiverFn};
+    use crate::stream::{MockShutdownStream, create_tcp_stream};
+    use crate::{GetReceiverFn, avahi, avahi_error, avahi3};
     use crate::{get_avahi_impl, get_receiver_and_port, main2, parse_args, print_status};
     use predicates::ord::eq;
     use std::io;
