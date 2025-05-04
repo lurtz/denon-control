@@ -1,5 +1,5 @@
-use crate::state::get_state;
 use crate::state::SetState;
+use crate::state::get_state;
 use crate::state::{PowerState, SourceInputState, State};
 
 macro_rules! parsehelper {

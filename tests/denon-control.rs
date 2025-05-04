@@ -111,7 +111,10 @@ fn queries_receiver_state_and_gets_state_one_by_one(
         Ok((to_receiver, received_data))
     });
 
-    let expected = format!("Current status of receiver:\n\tPower({})\n\tSourceInput({})\n\tMainVolume({})\n\tMaxVolume({})\n", power, input, volume, max_volume);
+    let expected = format!(
+        "Current status of receiver:\n\tPower({})\n\tSourceInput({})\n\tMainVolume({})\n\tMaxVolume({})\n",
+        power, input, volume, max_volume
+    );
 
     cmd.arg("--address")
         .arg(format!("localhost:{}", local_port))
@@ -155,7 +158,10 @@ fn queries_receiver_state_and_gets_all_states_at_once(
         Ok((to_receiver, received_data))
     });
 
-    let expected = format!("Current status of receiver:\n\tPower({})\n\tSourceInput({})\n\tMainVolume({})\n\tMaxVolume({})\n", power, input, volume, max_volume);
+    let expected = format!(
+        "Current status of receiver:\n\tPower({})\n\tSourceInput({})\n\tMainVolume({})\n\tMaxVolume({})\n",
+        power, input, volume, max_volume
+    );
 
     cmd.arg("--address")
         .arg(format!("localhost:{}", local_port))

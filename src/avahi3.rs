@@ -77,13 +77,13 @@ pub fn get_receiver(logger: &dyn Logger) -> Result<String, Error> {
 
 #[cfg(test)]
 mod test {
-    use super::{get_receiver, get_roap_service_type, on_service_discovered, Context};
-    use crate::{avahi3::get_hostname, avahi_error::Error, logger::MockLogger};
+    use super::{Context, get_receiver, get_roap_service_type, on_service_discovered};
+    use crate::{avahi_error::Error, avahi3::get_hostname, logger::MockLogger};
     use std::{
         net::TcpStream,
         sync::{Arc, Mutex},
     };
-    use zeroconf::{error, prelude::BuilderDelegate, ServiceDiscovery, ServiceType};
+    use zeroconf::{ServiceDiscovery, ServiceType, error, prelude::BuilderDelegate};
 
     fn create_service_discovery() -> ServiceDiscovery {
         ServiceDiscovery::builder()
