@@ -40,40 +40,33 @@ impl From<zeroconf::error::Error> for Error {
 
 #[cfg(test)]
 mod test {
-    use crate::avahi_error::Error as Avahi_error;
+    use crate::avahi_error::Error as Le_error;
+    use crate::{avahi_error::Error as Avahi_error, check_error};
     use std::{error::Error, io};
 
     #[test]
-    fn format() {
+    fn no_hosts_found() {
         assert_eq!("NoHostsFound", format!("{}", Avahi_error::NoHostsFound));
+        assert!(Avahi_error::NoHostsFound.source().is_none());
     }
 
     #[test]
     fn from_io_error() {
-        let eio = io::Error::from(io::ErrorKind::Other);
-        let e = Avahi_error::from(eio);
-        assert!(matches!(e, Avahi_error::IO(_)));
+        check_error!(
+            io::Error::from(io::ErrorKind::AddrInUse),
+            Avahi_error::IO(_),
+            "IO(",
+            true
+        );
     }
 
     #[test]
     fn from_zeroconf_error() {
-        let ezc = zeroconf::error::Error::new(String::from(""));
-        let e = Avahi_error::from(ezc);
-        assert!(matches!(e, Avahi_error::Zeroconf(_)));
-    }
-
-    #[test]
-    fn source() {
-        assert!(Avahi_error::NoHostsFound.source().is_none());
-        assert!(
-            Avahi_error::IO(io::Error::from(io::ErrorKind::AddrInUse))
-                .source()
-                .is_some()
-        );
-        assert!(
-            Avahi_error::Zeroconf(zeroconf::error::Error::new("".to_string()))
-                .source()
-                .is_some()
+        check_error!(
+            zeroconf::error::Error::new(String::from("blub")),
+            Avahi_error::Zeroconf(_),
+            "Zeroconf(",
+            true
         );
     }
 }

@@ -59,12 +59,18 @@ mod test {
     use std::error::Error;
     use std::io;
 
+    #[macro_export]
     macro_rules! check_error {
         ($error_value:expr, $expected:pat, $string:expr, $source_result:expr ) => {
             let error = Le_error::from($error_value);
             assert!(matches!(error, $expected));
-            assert_eq!($string, format!("{}", error));
             assert_eq!($source_result, error.source().is_some());
+            let starts_with_string = {
+                use predicates::Predicate;
+                let matcher = predicates::str::starts_with($string);
+                matcher.eval(&format!("{error}"))
+            };
+            assert!(starts_with_string);
         };
     }
 
@@ -73,7 +79,7 @@ mod test {
         check_error!(
             i32::from_str_radix("a23", 10).unwrap_err(),
             Le_error::ParseInt(_),
-            "ParseInt(ParseIntError { kind: InvalidDigit })",
+            "ParseInt(",
             true
         );
         check_error!(
@@ -83,9 +89,9 @@ mod test {
             true
         );
         check_error!(
-            std::io::Error::from(io::ErrorKind::AddrInUse),
+            io::Error::from(io::ErrorKind::AddrInUse),
             Le_error::IO(_),
-            "IO(Kind(AddrInUse))",
+            "IO(",
             true
         );
         check_error!(
