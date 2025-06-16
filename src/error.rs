@@ -37,12 +37,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<String> for Error {
-    fn from(value: String) -> Self {
-        Error::Input(value)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::avahi_error;
@@ -74,6 +68,5 @@ mod test {
             Error::IO(_),
             "IO(Kind(AddrInUse))"
         );
-        check_error!(String::from("blub"), Error::Input(_), "Input(\"blub\")");
     }
 }
