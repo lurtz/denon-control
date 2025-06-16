@@ -37,7 +37,6 @@ fn get_hostname(service_type: ServiceType, logger: &dyn Logger) -> Result<Servic
         }
     }
 
-    
     match &context.lock().unwrap().service_discovery {
         Some(x) => Ok(x.clone()),
         None => Err(Error::NoHostsFound),
@@ -48,12 +47,15 @@ fn on_service_discovered(
     result: zeroconf::Result<ServiceDiscovery>,
     context: Option<Arc<dyn Any>>,
 ) {
-    if let Ok(sd) = result
-        && let Some(ctx) = context
-            && let Some(m) = ctx.downcast_ref::<Arc<Mutex<Context>>>()
-                && let Ok(mut ctx) = m.lock() {
+    if let Ok(sd) = result {
+        if let Some(ctx) = context {
+            if let Some(m) = ctx.downcast_ref::<Arc<Mutex<Context>>>() {
+                if let Ok(mut ctx) = m.lock() {
                     ctx.service_discovery = Some(sd);
                 }
+            }
+        }
+    }
 }
 
 fn get_roap_service_type() -> ServiceType {
