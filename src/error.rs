@@ -61,8 +61,8 @@ mod test {
 
     #[macro_export]
     macro_rules! check_error {
-        ($error_value:expr, $expected:pat, $string:expr, $source_result:expr ) => {
-            let error = Le_error::from($error_value);
+        ($error_t:ty, $error_value:expr, $expected:pat, $string:expr, $source_result:expr ) => {
+            let error = <$error_t>::from($error_value);
             assert!(matches!(error, $expected));
             assert_eq!($source_result, error.source().is_some());
             let starts_with_string = {
@@ -77,24 +77,28 @@ mod test {
     #[test]
     fn error_test() {
         check_error!(
+            Le_error,
             i32::from_str_radix("a23", 10).unwrap_err(),
             Le_error::ParseInt(_),
             "ParseInt(",
             true
         );
         check_error!(
+            Le_error,
             avahi_error::Error::NoHostsFound,
             Le_error::Avahi(_),
             "Avahi(NoHostsFound)",
             true
         );
         check_error!(
+            Le_error,
             io::Error::from(io::ErrorKind::AddrInUse),
             Le_error::IO(_),
             "IO(",
             true
         );
         check_error!(
+            Le_error,
             String::from("blub"),
             Le_error::Input(_),
             "Input(\"blub\")",

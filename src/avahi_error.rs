@@ -40,7 +40,6 @@ impl From<zeroconf::error::Error> for Error {
 
 #[cfg(test)]
 mod test {
-    use crate::avahi_error::Error as Le_error;
     use crate::{avahi_error::Error as Avahi_error, check_error};
     use std::{error::Error, io};
 
@@ -53,6 +52,7 @@ mod test {
     #[test]
     fn from_io_error() {
         check_error!(
+            Avahi_error,
             io::Error::from(io::ErrorKind::AddrInUse),
             Avahi_error::IO(_),
             "IO(",
@@ -63,6 +63,7 @@ mod test {
     #[test]
     fn from_zeroconf_error() {
         check_error!(
+            Avahi_error,
             zeroconf::error::Error::new(String::from("blub")),
             Avahi_error::Zeroconf(_),
             "Zeroconf(",
