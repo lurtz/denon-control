@@ -13,11 +13,11 @@ pub fn write_string(stream: &mut dyn Write, input: &str) -> Result<(), std::io::
 }
 
 fn write_state(stream: &mut dyn Write, state: SetState) -> Result<(), io::Error> {
-    write_string(stream, format!("{}\r", state).as_str())
+    write_string(stream, format!("{state}\r").as_str())
 }
 
 fn write_query(stream: &mut dyn Write, state: State) -> Result<(), io::Error> {
-    write_string(stream, format!("{}?\r", state).as_str())
+    write_string(stream, format!("{state}?\r").as_str())
 }
 
 pub fn read(stream: &dyn ReadStream, lines: u8) -> Result<Vec<String>, std::io::Error> {

@@ -52,7 +52,7 @@ pub fn parse_args(args: Vec<String>, logger: &dyn Logger) -> getopts::Matches {
     let arguments = match ops.parse(&args[1..]) {
         Ok(m) => m,
         Err(f) => {
-            let error_message = format!("{}", f);
+            let error_message = format!("{f}");
             logger.log(&error_message);
             #[cfg(not(fuzzing))]
             {
@@ -113,7 +113,7 @@ pub fn get_receiver_and_port(
         },
         None => (get_rec(logger)?, default_port),
     };
-    logger.log(&format!("using receiver: {}:{}", denon_name, port));
+    logger.log(&format!("using receiver: {denon_name}:{port}"));
     Ok((denon_name, port))
 }
 

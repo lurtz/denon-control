@@ -11,7 +11,7 @@ pub enum PowerState {
 impl Display for PowerState {
     fn fmt(&self, format: &mut Formatter) -> Result<(), Error> {
         let mut buffer = String::new();
-        write!(&mut buffer, "{:?}", self)?;
+        write!(&mut buffer, "{self:?}")?;
         write!(format, "{}", buffer.to_ascii_uppercase())
     }
 }
@@ -58,7 +58,7 @@ impl Display for SourceInputState {
         match *self {
             SourceInputState::Netusb => write!(&mut buffer, "NET/USB")?,
             SourceInputState::Usbipod => write!(&mut buffer, "USB/IPOD")?,
-            _ => write!(&mut buffer, "{:?}", self)?,
+            _ => write!(&mut buffer, "{self:?}")?,
         }
         write!(format, "{}", buffer.to_ascii_uppercase())
     }
@@ -113,7 +113,7 @@ impl Display for State {
             State::MaxVolume => "MVMAX",
             State::MainVolume => "MV",
         };
-        write!(format, "{}", val)
+        write!(format, "{val}")
     }
 }
 
@@ -140,7 +140,7 @@ impl SetState {
 impl Display for SetState {
     fn fmt(&self, format: &mut Formatter) -> Result<(), Error> {
         let (state, value) = self.convert();
-        write!(format, "{}{}", state, value)
+        write!(format, "{state}{value}")
     }
 }
 
@@ -155,9 +155,9 @@ pub enum StateValue {
 impl Display for StateValue {
     fn fmt(&self, format: &mut Formatter) -> Result<(), Error> {
         match *self {
-            StateValue::Power(ref p) => write!(format, "{}", p),
-            StateValue::SourceInput(ref si) => write!(format, "{}", si),
-            StateValue::Integer(i) => write!(format, "{}", i),
+            StateValue::Power(ref p) => write!(format, "{p}"),
+            StateValue::SourceInput(ref si) => write!(format, "{si}"),
+            StateValue::Integer(i) => write!(format, "{i}"),
             StateValue::Unknown => Ok(()),
         }
     }
@@ -173,8 +173,7 @@ pub fn get_state<T: ToString + Copy + std::fmt::Debug>(
         }
     }
     Err(format!(
-        "given value {} does not match to any of these: {:?}",
-        value, states
+        "given value {value} does not match to any of these: {states:?}"
     ))
 }
 

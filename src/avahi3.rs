@@ -33,15 +33,14 @@ fn get_hostname(service_type: ServiceType, logger: &dyn Logger) -> Result<Servic
     {
         match event_loop.poll(Duration::from_secs(0)) {
             Ok(_) => {}
-            Err(x) => logger.log(&format!("{}", x)),
+            Err(x) => logger.log(&format!("{x}")),
         }
     }
 
-    let result = match &context.lock().unwrap().service_discovery {
+    match &context.lock().unwrap().service_discovery {
         Some(x) => Ok(x.clone()),
         None => Err(Error::NoHostsFound),
-    };
-    result
+    }
 }
 
 fn on_service_discovered(
