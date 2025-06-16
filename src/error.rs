@@ -1,3 +1,6 @@
+use std::convert::From;
+use std::fmt;
+
 use crate::avahi_error;
 
 #[derive(Debug)]
@@ -8,25 +11,33 @@ pub enum Error {
     Input(String),
 }
 
-impl std::convert::From<std::num::ParseIntError> for Error {
+impl fmt::Display for Error {
+    fn fmt(&self, format: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(format, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl From<std::num::ParseIntError> for Error {
     fn from(parse_error: std::num::ParseIntError) -> Self {
         Error::ParseInt(parse_error)
     }
 }
 
-impl std::convert::From<avahi_error::Error> for Error {
+impl From<avahi_error::Error> for Error {
     fn from(avahi_error: avahi_error::Error) -> Self {
         Error::Avahi(avahi_error)
     }
 }
 
-impl std::convert::From<std::io::Error> for Error {
+impl From<std::io::Error> for Error {
     fn from(io_error: std::io::Error) -> Self {
         Error::IO(io_error)
     }
 }
 
-impl std::convert::From<String> for Error {
+impl From<String> for Error {
     fn from(value: String) -> Self {
         Error::Input(value)
     }
