@@ -166,15 +166,15 @@ impl Display for StateValue {
 pub fn get_state<T: ToString + Copy + std::fmt::Debug>(
     states: &[T],
     value: &str,
-) -> Result<T, String> {
+) -> Result<T, crate::error::Error> {
     for power in states {
         if power.to_string() == value {
             return Ok(*power);
         }
     }
-    Err(format!(
+    Err(crate::error::Error::Input(format!(
         "given value {value} does not match to any of these: {states:?}"
-    ))
+    )))
 }
 
 #[cfg(test)]

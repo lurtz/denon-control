@@ -6,15 +6,23 @@ use std::io;
 #[derive(Debug)]
 pub enum Error {
     NoHostsFound,
-    #[allow(dead_code)] // used in Display implementation
     IO(io::Error),
-    #[allow(dead_code)] // used in Display implementation
     Zeroconf(zeroconf::error::Error),
 }
 
 impl Display for Error {
     fn fmt(&self, format: &mut Formatter) -> Result<(), fmt::Error> {
         write!(format, "{self:?}")
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::NoHostsFound => None,
+            Error::IO(error) => Some(error),
+            Error::Zeroconf(error) => Some(error),
+        }
     }
 }
 
@@ -32,25 +40,34 @@ impl From<zeroconf::error::Error> for Error {
 
 #[cfg(test)]
 mod test {
-    use crate::avahi_error::Error;
-    use std::io;
+    use crate::{avahi_error::Error as Avahi_error, check_error};
+    use std::{error::Error, io};
 
     #[test]
-    fn format() {
-        assert_eq!("NoHostsFound", format!("{}", Error::NoHostsFound));
+    fn no_hosts_found() {
+        assert_eq!("NoHostsFound", format!("{}", Avahi_error::NoHostsFound));
+        assert!(Avahi_error::NoHostsFound.source().is_none());
     }
 
     #[test]
     fn from_io_error() {
-        let eio = io::Error::new(io::ErrorKind::Other, "");
-        let e = Error::from(eio);
-        assert!(matches!(e, Error::IO(_)));
+        check_error!(
+            Avahi_error,
+            io::Error::from(io::ErrorKind::AddrInUse),
+            Avahi_error::IO(_),
+            "IO(",
+            true
+        );
     }
 
     #[test]
     fn from_zeroconf_error() {
-        let ezc = zeroconf::error::Error::new(String::from(""));
-        let e = Error::from(ezc);
-        assert!(matches!(e, Error::Zeroconf(_)));
+        check_error!(
+            Avahi_error,
+            zeroconf::error::Error::new(String::from("blub")),
+            Avahi_error::Zeroconf(_),
+            "Zeroconf(",
+            true
+        );
     }
 }
