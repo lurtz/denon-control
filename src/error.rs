@@ -53,7 +53,7 @@ mod test {
         ($error_value:expr, $expected:pat, $string:expr ) => {
             let error = Error::from($error_value);
             assert!(matches!(error, $expected));
-            assert_eq!($string, format!("{:?}", error));
+            assert_eq!($string, format!("{}", error));
         };
     }
 
