@@ -13,7 +13,7 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, format: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(format, "{:?}", self)
+        write!(format, "{self:?}")
     }
 }
 
