@@ -6,9 +6,7 @@ use std::io;
 #[derive(Debug)]
 pub enum Error {
     NoHostsFound,
-    #[allow(dead_code)] // used in Display implementation
     IO(io::Error),
-    #[allow(dead_code)] // used in Display implementation
     Zeroconf(zeroconf::error::Error),
 }
 
