@@ -24,7 +24,7 @@ jobs:
     - name: Build, run tests and collect coverage
       run: cargo llvm-cov --lcov --output-path ${{github.workspace}}/lcov.info
     - name: Display coverage in pull request
-      uses: romeovs/lcov-reporter-action@v0.3.1
+      uses: romeovs/lcov-reporter-action@v0.4.0
       if: ${{ github.event_name == 'pull_request' }}
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
