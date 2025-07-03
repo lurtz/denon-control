@@ -32,6 +32,8 @@ jobs:
         lcov-file: lcov.info
 
   check-formatting:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -39,6 +41,8 @@ jobs:
       run: cargo fmt --check
 
   check-static-code-analysis:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
