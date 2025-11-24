@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use zeroconf::prelude::{TEventLoop, TMdnsBrowser};
 use zeroconf::txt_record::TTxtRecord;
-use zeroconf::{MdnsBrowser, ServiceDiscovery, ServiceType};
+use zeroconf::{BrowserEvent, MdnsBrowser, ServiceDiscovery, ServiceType};
 
 #[derive(Default, Debug)]
 struct Context {
@@ -15,7 +15,7 @@ struct Context {
 fn get_hostname(service_type: ServiceType, logger: &dyn Logger) -> Result<ServiceDiscovery, Error> {
     let context: Arc<Mutex<Context>> = Arc::default();
     let mut browser = MdnsBrowser::new(service_type);
-    browser.set_service_discovered_callback(Box::new(on_service_discovered));
+    browser.set_service_callback(Box::new(on_service_discovery_event));
     browser.set_context(Box::new(context.clone()));
     let event_loop = browser.browse_services()?;
 
@@ -43,11 +43,12 @@ fn get_hostname(service_type: ServiceType, logger: &dyn Logger) -> Result<Servic
     }
 }
 
-fn on_service_discovered(
-    result: zeroconf::Result<ServiceDiscovery>,
-    context: Option<Arc<dyn Any>>,
+fn on_service_discovery_event(
+    result: zeroconf::Result<BrowserEvent>,
+    context: Option<Arc<dyn Any + Send + Sync>>,
 ) {
-    if let Ok(sd) = result
+    if let Ok(event) = result
+        && let BrowserEvent::Add(sd) = event
         && let Some(ctx) = context
         && let Some(m) = ctx.downcast_ref::<Arc<Mutex<Context>>>()
         && let Ok(mut ctx) = m.lock()
@@ -74,13 +75,13 @@ pub fn get_receiver(logger: &dyn Logger) -> Result<String, Error> {
 
 #[cfg(test)]
 mod test {
-    use super::{Context, get_receiver, get_roap_service_type, on_service_discovered};
+    use super::{Context, get_receiver, get_roap_service_type, on_service_discovery_event};
     use crate::{avahi_error::Error, avahi3::get_hostname, logger::MockLogger};
     use std::{
         net::TcpStream,
         sync::{Arc, Mutex},
     };
-    use zeroconf::{ServiceDiscovery, ServiceType, error, prelude::BuilderDelegate};
+    use zeroconf::{BrowserEvent, ServiceDiscovery, ServiceType, error, prelude::BuilderDelegate};
 
     fn create_service_discovery() -> ServiceDiscovery {
         ServiceDiscovery::builder()
@@ -143,7 +144,7 @@ mod test {
         let sd = create_service_discovery();
         let context: Arc<Arc<Mutex<Context>>> = Arc::default();
         assert_eq!(context.lock().unwrap().service_discovery, None);
-        on_service_discovered(Ok(sd.clone()), Some(context.clone()));
+        on_service_discovery_event(Ok(BrowserEvent::Add(sd.clone())), Some(context.clone()));
         assert_eq!(context.lock().unwrap().service_discovery, Some(sd.clone()));
     }
 
@@ -151,7 +152,7 @@ mod test {
     fn on_service_discovered_does_nothing_on_no_service_discovery() {
         let context: Arc<Arc<Mutex<Context>>> = Arc::default();
         assert_eq!(context.lock().unwrap().service_discovery, None);
-        on_service_discovered(
+        on_service_discovery_event(
             Err(error::Error::new(String::from("blub"))),
             Some(context.clone()),
         );
@@ -163,7 +164,7 @@ mod test {
         let sd = create_service_discovery();
         let context: Arc<Arc<Mutex<Context>>> = Arc::default();
         assert_eq!(context.lock().unwrap().service_discovery, None);
-        on_service_discovered(Ok(sd.clone()), None);
+        on_service_discovery_event(Ok(BrowserEvent::Add(sd.clone())), None);
         assert_eq!(context.lock().unwrap().service_discovery, None);
     }
 
@@ -172,7 +173,7 @@ mod test {
         let sd = create_service_discovery();
         let context: Arc<Mutex<Context>> = Arc::default();
         assert_eq!(context.lock().unwrap().service_discovery, None);
-        on_service_discovered(Ok(sd.clone()), Some(context.clone()));
+        on_service_discovery_event(Ok(BrowserEvent::Add(sd.clone())), Some(context.clone()));
         assert_eq!(context.lock().unwrap().service_discovery, None);
     }
 }
