@@ -58,7 +58,7 @@ jobs:
       with:
         name: fuzz_coverage
         path: fuzz_coverage
-    - uses: actions/github-script@v8
+    - uses: actions/github-script@v9
       if: ${{ github.event_name == 'pull_request' }}
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
