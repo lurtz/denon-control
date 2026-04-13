@@ -6,7 +6,7 @@ edition = '2024'
 
 [dependencies]
 getopts = "0.2"
-zeroconf = "0.17"
+zeroconf = "0.18"
 
 [dev-dependencies]
 mockall = "0.14.0"
