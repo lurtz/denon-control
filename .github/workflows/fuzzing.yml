@@ -17,7 +17,7 @@ jobs:
   fuzzing:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Install avahi headers and utils
       run: sudo apt-get update && sudo apt-get install libavahi-client-dev avahi-daemon avahi-utils pulseaudio-utils
     - uses: r7kamura/rust-problem-matchers@v1
